@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Snake))]
@@ -11,14 +11,12 @@ public class SnakeSegmentManager : MonoBehaviour
         snake = GetComponent<Snake>();
     }
 
-    // Prueft solange auf 3er-Reihen, bis keine mehr gefunden werden (Kaskaden).
+    // Einstiegspunkt aus Snake.OnTriggerEnter2D (alter Name bleibt als Alias)
+    public void PruefeUndZerkleinereKette() => PruefeKombos();
     public void PruefeKombos()
     {
         while (PruefeEinzelneKombo()) { }
     }
-
-    // Rueckwaertskompatibilitaet falls Snake.OnTriggerEnter2D noch den alten Namen nutzt
-    public void PruefeUndZerkleinereKette() => PruefeKombos();
 
     private bool PruefeEinzelneKombo()
     {
@@ -27,11 +25,11 @@ public class SnakeSegmentManager : MonoBehaviour
         // Mindestens Kopf + 3 Koerper-Segmente noetig
         if (segmente.Count < 4) return false;
 
-        Nahrungstyp runTyp = null;
-        int runStart = -1;
-        int runLaenge = 0;
+        Nahrungstyp runTyp  = null;
+        int runStart        = -1;
+        int runLaenge       = 0;
 
-        // Index 0 ist der Kopf (kein SnakeSegment) → ab Index 1 starten
+        // Index 0 ist der Kopf (hat kein SnakeSegment) → ab Index 1 starten
         for (int i = 1; i < segmente.Count; i++)
         {
             Nahrungstyp typ = segmente[i].GetComponent<SnakeSegment>()?.Typ;
@@ -45,21 +43,21 @@ public class SnakeSegmentManager : MonoBehaviour
                 if (runLaenge >= 3)
                 {
                     snake.EntferneSegmente(runStart, runLaenge);
-                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Neue Segmentanzahl: {snake.Segmente.Count}");
+                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segmente.Count}");
                     return true;
                 }
 
-                runTyp = typ;
-                runStart = i;
+                runTyp    = typ;
+                runStart  = i;
                 runLaenge = 1;
             }
         }
 
-        // Letzten laufenden Block noch pruefen (Reihe bis ans Schwanzende)
+        // Letzten Block pruefen (Reihe bis ans Schwanzende)
         if (runLaenge >= 3)
         {
             snake.EntferneSegmente(runStart, runLaenge);
-            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Neue Segmentanzahl: {snake.Segmente.Count}");
+            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segmente.Count}");
             return true;
         }
 

@@ -677,7 +677,7 @@ PrefabInstance:
         type: 3}
       propertyPath: foodPrefab
       value: 
-      objectReference: {fileID: 341460832292589893, guid: b181eb2e785a4ed44a9344035e13e28c,
+      objectReference: {fileID: 520336744088166123, guid: 3a64f2885f5b81c4ca72086eaa84f0ad,
         type: 3}
     - target: {fileID: 6210372087803353859, guid: c6a83c4db5a40e746bc67279631e5869,
         type: 3}
@@ -850,6 +850,8 @@ MonoBehaviour:
   speedMultiplier: 1
   initialSize: 4
   moveThroughWalls: 0
+  standardTurmPrefab: {fileID: 341460832292589893, guid: b181eb2e785a4ed44a9344035e13e28c,
+    type: 3}
   moveEaseType: 1
   segmentEaseType: 2
   squashAmount: 1.25
