@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(BoxCollider2D))]
@@ -13,6 +14,11 @@ public class Food : MonoBehaviour
     // Wird von der Snake beim Einsammeln ausgelesen.
     public Nahrungstyp AktuellerTyp { get; private set; }
 
+    // Registry ALLER aktiven Foods. Dadurch kann jedes Food beim Platzieren
+    // pruefen, ob bereits ein anderes Food auf dem Feld liegt – so spawnen
+    // mehrere Foods nicht aufeinander.
+    private static readonly List<Food> alleFoods = new List<Food>();
+
     private Snake snake;
     private SpriteRenderer spriteRenderer;
 
@@ -20,6 +26,16 @@ public class Food : MonoBehaviour
     {
         snake = FindObjectOfType<Snake>();
         spriteRenderer = GetComponent<SpriteRenderer>();
+    }
+
+    private void OnEnable()
+    {
+        alleFoods.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        alleFoods.Remove(this);
     }
 
     private void Start()
@@ -34,16 +50,16 @@ public class Food : MonoBehaviour
         int x = Mathf.RoundToInt(Random.Range(bounds.min.x, bounds.max.x));
         int y = Mathf.RoundToInt(Random.Range(bounds.min.y, bounds.max.y));
 
-        while (snake.Occupies(x, y))
+        // Feld weitersuchen, solange es von der Schlange ODER einem anderen Food belegt ist
+        while (IstBelegt(x, y))
         {
             x++;
-
             if (x > bounds.max.x)
             {
                 x = Mathf.RoundToInt(bounds.min.x);
                 y++;
-
-                if (y > bounds.max.y) {
+                if (y > bounds.max.y)
+                {
                     y = Mathf.RoundToInt(bounds.min.y);
                 }
             }
@@ -53,15 +69,42 @@ public class Food : MonoBehaviour
         WaehleZufaelligenTyp();
     }
 
+    // Prueft Schlange UND alle anderen Foods (nicht sich selbst).
+    private bool IstBelegt(int x, int y)
+    {
+        if (snake != null && snake.Occupies(x, y))
+        {
+            return true;
+        }
+
+        foreach (Food anderes in alleFoods)
+        {
+            if (anderes == this)
+            {
+                continue;
+            }
+
+            if (Mathf.RoundToInt(anderes.transform.position.x) == x &&
+                Mathf.RoundToInt(anderes.transform.position.y) == y)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void WaehleZufaelligenTyp()
     {
-        if (typen == null || typen.Length == 0) {
+        if (typen == null || typen.Length == 0)
+        {
             return;
         }
 
         AktuellerTyp = typen[Random.Range(0, typen.Length)];
 
-        if (spriteRenderer != null) {
+        if (spriteRenderer != null)
+        {
             spriteRenderer.color = AktuellerTyp.farbe;
         }
     }
