@@ -6,7 +6,7 @@ using UnityEngine;
 public class FoodSpawner : MonoBehaviour
 {
     [Tooltip("Das Food-Prefab. gridArea und typen sollten am Prefab gesetzt sein.")]
-    public Food foodPrefab;
+    public GameObject foodPrefab;
 
     [Min(1)]
     [Tooltip("Wie viele Foods gleichzeitig auf dem Feld liegen sollen.")]

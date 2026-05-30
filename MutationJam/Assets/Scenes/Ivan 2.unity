@@ -284,7 +284,7 @@ GameObject:
   - component: {fileID: 864387895}
   m_Layer: 0
   m_Name: Grid Area
-  m_TagString: Untagged
+  m_TagString: GridArea
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -666,18 +666,6 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 0.5, y: 0.5}
   m_EdgeRadius: 0
---- !u!114 &1406060361 stripped
-MonoBehaviour:
-  m_CorrespondingSourceObject: {fileID: 7021109151836306875, guid: 73a26030b970af34b994b48a2a23601c,
-    type: 3}
-  m_PrefabInstance: {fileID: 7743393112074355681}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 0}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 83fcf82957452fc45895f6c8b0732d37, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &1431457602
 GameObject:
   m_ObjectHideFlags: 0
@@ -958,7 +946,8 @@ PrefabInstance:
         type: 3}
       propertyPath: foodPrefab
       value: 
-      objectReference: {fileID: 1406060361}
+      objectReference: {fileID: 7938712801635710287, guid: 54abb920ba912c745b7309f2f27022b5,
+        type: 3}
     - target: {fileID: 6210372087803353859, guid: c6a83c4db5a40e746bc67279631e5869,
         type: 3}
       propertyPath: m_Name

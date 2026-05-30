@@ -26,6 +26,7 @@ public class Food : MonoBehaviour
     {
         snake = FindObjectOfType<Snake>();
         spriteRenderer = GetComponent<SpriteRenderer>();
+        gridArea = GameObject.FindGameObjectWithTag("GridArea").GetComponent<Collider2D>();
     }
 
     private void OnEnable()
