@@ -26,8 +26,6 @@ public class Snake : MonoBehaviour
     private float nextUpdate;
 
     public List<Transform> Segments => segments;
-    // Alias fuer SnakeSegmentManager
-    public IReadOnlyList<Transform> Segmente => segments;
 
     private void Start()
     {
@@ -148,23 +146,15 @@ public class Snake : MonoBehaviour
         SnakeSegment snakeSegment = segment.gameObject.AddComponent<SnakeSegment>();
         snakeSegment.StandardTurmPrefab = standardTurmPrefab;
         snakeSegment.SetzeTyp(typ);
+        snakeSegment.OnSegmentGestorben += SegmentGestorben;
 
         segments.Add(segment);
     }
 
-    // Entfernt eine zusammenhaengende Reihe gleicher Segmente.
-    // Das Lückenschliessen uebernimmt FixedUpdate automatisch im naechsten Tick.
-    public void EntferneSegmente(int startIndex, int anzahl)
+    // Wird vom SnakeSegment-Event aufgerufen wenn ein Segment stirbt
+    public void SegmentGestorben(SnakeSegment segment)
     {
-        for (int i = startIndex; i < startIndex + anzahl; i++)
-        {
-            if (segments[i] != null)
-            {
-                LeanTween.cancel(segments[i].gameObject);
-                Destroy(segments[i].gameObject);
-            }
-        }
-        segments.RemoveRange(startIndex, anzahl);
+        segments.Remove(segment.transform);
     }
 
     public void ResetState()

@@ -11,8 +11,8 @@ public class SnakeSegmentManager : MonoBehaviour
         snake = GetComponent<Snake>();
     }
 
-    // Einstiegspunkt aus Snake.OnTriggerEnter2D (alter Name bleibt als Alias)
     public void PruefeUndZerkleinereKette() => PruefeKombos();
+
     public void PruefeKombos()
     {
         while (PruefeEinzelneKombo()) { }
@@ -20,16 +20,15 @@ public class SnakeSegmentManager : MonoBehaviour
 
     private bool PruefeEinzelneKombo()
     {
-        IReadOnlyList<Transform> segmente = snake.Segmente;
+        // Nutzt snake.Segments (englisch) – so wie es in Snake.cs definiert ist
+        List<Transform> segmente = snake.Segments;
 
-        // Mindestens Kopf + 3 Koerper-Segmente noetig
         if (segmente.Count < 4) return false;
 
-        Nahrungstyp runTyp  = null;
-        int runStart        = -1;
-        int runLaenge       = 0;
+        Nahrungstyp runTyp = null;
+        int runStart = -1;
+        int runLaenge = 0;
 
-        // Index 0 ist der Kopf (hat kein SnakeSegment) → ab Index 1 starten
         for (int i = 1; i < segmente.Count; i++)
         {
             Nahrungstyp typ = segmente[i].GetComponent<SnakeSegment>()?.Typ;
@@ -42,25 +41,40 @@ public class SnakeSegmentManager : MonoBehaviour
             {
                 if (runLaenge >= 3)
                 {
-                    snake.EntferneSegmente(runStart, runLaenge);
-                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segmente.Count}");
+                    EntferneSegmente(segmente, runStart, runLaenge);
+                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {segmente.Count}");
                     return true;
                 }
 
-                runTyp    = typ;
-                runStart  = i;
+                runTyp = typ;
+                runStart = i;
                 runLaenge = 1;
             }
         }
 
-        // Letzten Block pruefen (Reihe bis ans Schwanzende)
         if (runLaenge >= 3)
         {
-            snake.EntferneSegmente(runStart, runLaenge);
-            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segmente.Count}");
+            EntferneSegmente(segmente, runStart, runLaenge);
+            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {segmente.Count}");
             return true;
         }
 
         return false;
+    }
+
+    // Entfernt Segmente direkt aus der Liste und zerstoert die GameObjects.
+    // Kein EntferneSegmente() auf Snake noetig.
+    private void EntferneSegmente(List<Transform> segmente, int startIndex, int anzahl)
+    {
+        for (int i = startIndex; i < startIndex + anzahl; i++)
+        {
+            if (segmente[i] != null)
+            {
+                LeanTween.cancel(segmente[i].gameObject);
+                Destroy(segmente[i].gameObject);
+            }
+        }
+
+        segmente.RemoveRange(startIndex, anzahl);
     }
 }
