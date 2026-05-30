@@ -497,6 +497,7 @@ GameObject:
   - component: {fileID: 1161375265}
   - component: {fileID: 1161375266}
   - component: {fileID: 1161375264}
+  - component: {fileID: 1161375267}
   m_Layer: 0
   m_Name: Snake
   m_TagString: Player
@@ -666,6 +667,18 @@ BoxCollider2D:
   m_AutoTiling: 0
   m_Size: {x: 0.5, y: 0.5}
   m_EdgeRadius: 0
+--- !u!114 &1161375267
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1161375261}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ead338cba172d754aa464c13559828cd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1406060357
 GameObject:
   m_ObjectHideFlags: 0
@@ -816,11 +829,11 @@ MonoBehaviour:
   gridArea: {fileID: 864387895}
   typen:
   - bezeichnung: Rot
-    farbe: {r: 0.8867924, g: 0.28025985, b: 0.28025985, a: 0}
+    farbe: {r: 0.8867924, g: 0.28025985, b: 0.28025985, a: 1}
   - bezeichnung: Orange
-    farbe: {r: 0.9622642, g: 0.6841879, b: 0.19517623, a: 0}
+    farbe: {r: 0.9622642, g: 0.6841879, b: 0.19517623, a: 1}
   - bezeichnung: Yellow
-    farbe: {r: 0.9451579, g: 1, b: 0.3726415, a: 0}
+    farbe: {r: 0.9451579, g: 1, b: 0.3726415, a: 1}
 --- !u!1 &1431457602
 GameObject:
   m_ObjectHideFlags: 0
