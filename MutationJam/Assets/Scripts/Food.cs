@@ -27,6 +27,7 @@ public class Food : MonoBehaviour
         snake = FindObjectOfType<Snake>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         gridArea = GameObject.FindGameObjectWithTag("GridArea").GetComponent<Collider2D>();
+        AktuellerTyp = Random.value > 0.5f ? Nahrungstyp.Rot : Nahrungstyp.Blau; // Default-Typ, falls keine Typen definiert sind
     }
 
     private void OnEnable()

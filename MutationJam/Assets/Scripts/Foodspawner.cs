@@ -12,13 +12,30 @@ public class FoodSpawner : MonoBehaviour
     [Tooltip("Wie viele Foods gleichzeitig auf dem Feld liegen sollen.")]
     public int anzahl = 3;
 
+    private Collider2D gridArea;
+
     private void Start()
     {
+        // GridArea finden
+        GameObject gridAreaObj = GameObject.FindGameObjectWithTag("GridArea");
+        if (gridAreaObj != null)
+        {
+            gridArea = gridAreaObj.GetComponent<Collider2D>();
+        }
+
         for (int i = 0; i < anzahl; i++)
         {
-            // Jedes instanziierte Food platziert sich in seinem eigenen Start()
-            // selbst zufaellig und meidet dabei Schlange + andere Foods.
-            Instantiate(foodPrefab);
+            // Food instanziieren
+            GameObject foodInstance = Instantiate(foodPrefab);
+
+            // Startposition zufaellig innerhalb der Walls setzen
+            if (gridArea != null)
+            {
+                Bounds bounds = gridArea.bounds;
+                float randomX = Random.Range(bounds.min.x, bounds.max.x);
+                float randomY = Random.Range(bounds.min.y, bounds.max.y);
+                foodInstance.transform.position = new Vector2(randomX, randomY);
+            }
         }
     }
 }
