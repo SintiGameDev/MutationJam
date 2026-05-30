@@ -85,6 +85,17 @@ public class CombatUIManager : MonoBehaviour
         UpdatePlayerHealthText();
     }
 
+    // Füge diese Methode in dein CombatUIManager Skript ein
+    public void InitializeNewEnemy(int newHealth, int newDamage)
+    {
+        enemyHealth = newHealth;
+
+        // Falls du den Gegnerschaden auch tracken willst, lege dafür eine Variable an
+        // enemyDamage = newDamage; 
+
+        UpdateEnemyHealthText();
+    }
+
     // Hilfsmethoden zur Aktualisierung der Texte
     private void UpdateEnemyHealthText()
     {
