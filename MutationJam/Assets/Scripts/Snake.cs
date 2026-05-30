@@ -15,6 +15,9 @@ public class Snake : MonoBehaviour
     private Vector2Int input;
     private float nextUpdate;
 
+    // NEU: Ermöglicht dem SnakeSegmentManager den Zugriff auf die Segmente
+    public List<Transform> Segments => segments;
+
     private void Start()
     {
         ResetState();
@@ -24,17 +27,23 @@ public class Snake : MonoBehaviour
     {
         if (direction.x != 0f)
         {
-            if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow)) {
+            if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
+            {
                 input = Vector2Int.up;
-            } else if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow)) {
+            }
+            else if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
+            {
                 input = Vector2Int.down;
             }
         }
         else if (direction.y != 0f)
         {
-            if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow)) {
+            if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow))
+            {
                 input = Vector2Int.right;
-            } else if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow)) {
+            }
+            else if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow))
+            {
                 input = Vector2Int.left;
             }
         }
@@ -42,15 +51,18 @@ public class Snake : MonoBehaviour
 
     private void FixedUpdate()
     {
-        if (Time.time < nextUpdate) {
+        if (Time.time < nextUpdate)
+        {
             return;
         }
 
-        if (input != Vector2Int.zero) {
+        if (input != Vector2Int.zero)
+        {
             direction = input;
         }
 
-        for (int i = segments.Count - 1; i > 0; i--) {
+        for (int i = segments.Count - 1; i > 0; i--)
+        {
             segments[i].position = segments[i - 1].position;
         }
 
@@ -81,14 +93,16 @@ public class Snake : MonoBehaviour
         direction = Vector2Int.right;
         transform.position = Vector3.zero;
 
-        for (int i = 1; i < segments.Count; i++) {
+        for (int i = 1; i < segments.Count; i++)
+        {
             Destroy(segments[i].gameObject);
         }
 
         segments.Clear();
         segments.Add(transform);
 
-        for (int i = 0; i < initialSize - 1; i++) {
+        for (int i = 0; i < initialSize - 1; i++)
+        {
             Grow(); // kein Typ → Startsegmente bleiben gruen
         }
     }
@@ -98,7 +112,8 @@ public class Snake : MonoBehaviour
         foreach (Transform segment in segments)
         {
             if (Mathf.RoundToInt(segment.position.x) == x &&
-                Mathf.RoundToInt(segment.position.y) == y) {
+                Mathf.RoundToInt(segment.position.y) == y)
+            {
                 return true;
             }
         }
@@ -116,7 +131,15 @@ public class Snake : MonoBehaviour
             Nahrungstyp typ = (food != null) ? food.AktuellerTyp : null;
             Grow(typ);
 
-            if (food != null) {
+            // NEU: Überprüfung starten, ob 3 gleiche Segmente hintereinander liegen
+            SnakeSegmentManager segmentManager = GetComponent<SnakeSegmentManager>();
+            if (segmentManager != null)
+            {
+                segmentManager.PruefeUndZerkleinereKette();
+            }
+
+            if (food != null)
+            {
                 food.RandomizePosition();
             }
         }
@@ -126,9 +149,12 @@ public class Snake : MonoBehaviour
         }
         else if (other.gameObject.CompareTag("Wall"))
         {
-            if (moveThroughWalls) {
+            if (moveThroughWalls)
+            {
                 Traverse(other.transform);
-            } else {
+            }
+            else
+            {
                 ResetState();
             }
         }
@@ -138,9 +164,12 @@ public class Snake : MonoBehaviour
     {
         Vector3 position = transform.position;
 
-        if (direction.x != 0f) {
+        if (direction.x != 0f)
+        {
             position.x = Mathf.RoundToInt(-wall.position.x + direction.x);
-        } else if (direction.y != 0f) {
+        }
+        else if (direction.y != 0f)
+        {
             position.y = Mathf.RoundToInt(-wall.position.y + direction.y);
         }
 
