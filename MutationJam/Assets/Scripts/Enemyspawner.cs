@@ -1,36 +1,61 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Spawnt Gegner aehnlich wie der FoodSpawner.
-// Beachtet beim Platzieren:
+// Spawnt Gegner fortlaufend bis zu einer Maximalzahl.
+// Platzierung beachtet (wie beim FoodSpawner):
 //  - innerhalb der gridArea-Bounds
 //  - nicht auf der Schlange (kein Segment)
 //  - nicht zu nah am Kopf (mindestAbstandZumSpieler)
 //  - nicht auf einem Food
 //  - nicht auf einem anderen Gegner
 //
-// Tipp: Gib dem Gegner-Prefab den Tag "Obstacle", dann loest die
-// bestehende Snake-Logik beim Beruehren automatisch ResetState() aus.
+// Hinweis: Gegner brauchen den Tag "Enemy" und einen EnemyHealthManager,
+// damit Projektile/Schlangenkopf sie toeten koennen.
 public class EnemySpawner : MonoBehaviour
 {
+    [Header("Setup")]
     [Tooltip("Derselbe Bereich wie bei den Foods.")]
     public Collider2D gridArea;
 
     [Tooltip("Das Gegner-Prefab, das gespawnt wird.")]
     public Transform gegnerPrefab;
 
+    [Header("Spawn-Verhalten")]
     [Min(0)]
-    [Tooltip("Wie viele Gegner beim Start erzeugt werden.")]
-    public int anzahl = 3;
+    [Tooltip("Maximale Anzahl gleichzeitig lebender Gegner.")]
+    public int maxGegner = 5;
 
+    [Min(0f)]
+    [Tooltip("Wartezeit (Sekunden) nach Spielstart, bevor gespawnt wird.")]
+    public float startVerzoegerung = 2f;
+
+    [Min(0.05f)]
+    [Tooltip("Sekunden zwischen zwei Spawn-Versuchen (kleiner = schneller).")]
+    public float spawnIntervall = 3f;
+
+    [Header("Platzierung")]
     [Min(0f)]
     [Tooltip("Mindestabstand (in Grid-Feldern) zum Schlangenkopf.")]
     public float mindestAbstandZumSpieler = 5f;
 
     private Snake snake;
 
-    // Aktuell platzierte Gegner, damit sie sich nicht gegenseitig ueberlappen
+    // Aktuell platzierte Gegner (kann zerstoerte/null-Eintraege enthalten)
     private readonly List<Transform> gegner = new List<Transform>();
+
+    // Anzahl noch lebender Gegner
+    public int AnzahlGegner
+    {
+        get
+        {
+            int n = 0;
+            foreach (Transform g in gegner)
+            {
+                if (g != null) n++;
+            }
+            return n;
+        }
+    }
 
     private void Awake()
     {
@@ -39,25 +64,49 @@ public class EnemySpawner : MonoBehaviour
 
     private void Start()
     {
-        SpawneAlle();
+        float intervall = Mathf.Max(0.05f, spawnIntervall);
+        // Nach startVerzoegerung, dann alle 'intervall' Sekunden SpawneEinen aufrufen
+        InvokeRepeating(nameof(SpawneEinen), startVerzoegerung, intervall);
     }
 
-    // Erzeugt 'anzahl' Gegner und platziert jeden auf einem gueltigen Feld.
-    public void SpawneAlle()
+    // Wird per InvokeRepeating regelmaessig aufgerufen: spawnt EINEN Gegner,
+    // falls die Maximalzahl noch nicht erreicht ist.
+    public void SpawneEinen()
     {
-        for (int i = 0; i < anzahl; i++)
+        EntferneZerstoerte();
+
+        if (gegnerPrefab == null || gridArea == null)
         {
-            Transform neuer = Instantiate(gegnerPrefab);
-            gegner.Add(neuer);
-            PlatziereGegner(neuer);
+            return;
         }
+
+        if (AnzahlGegner >= maxGegner)
+        {
+            return; // Feld voll – nichts tun
+        }
+
+        List<Vector2Int> freieFelder = SammleGueltigeFelder(null);
+
+        if (freieFelder.Count == 0)
+        {
+            // Kein gueltiges Feld frei – beim naechsten Intervall erneut versuchen
+            return;
+        }
+
+        Vector2Int feld = freieFelder[Random.Range(0, freieFelder.Count)];
+        Transform neuer = Instantiate(
+            gegnerPrefab,
+            new Vector3(feld.x, feld.y, 0f),
+            Quaternion.identity);
+
+        gegner.Add(neuer);
     }
 
-    // Platziert (oder versetzt) einen einzelnen Gegner auf ein zufaelliges
-    // gueltiges Feld. Auch von aussen aufrufbar, falls Gegner spaeter
-    // umziehen sollen.
+    // Versetzt einen bestehenden Gegner auf ein neues gueltiges Feld.
     public void PlatziereGegner(Transform g)
     {
+        if (g == null) return;
+
         List<Vector2Int> freieFelder = SammleGueltigeFelder(g);
 
         if (freieFelder.Count == 0)
@@ -147,6 +196,12 @@ public class EnemySpawner : MonoBehaviour
         }
 
         return true;
+    }
+
+    // Entfernt zerstoerte (null) Gegner aus der Liste.
+    private void EntferneZerstoerte()
+    {
+        gegner.RemoveAll(g => g == null);
     }
 
     // Entfernt alle gespawnten Gegner (z.B. beim Neustart).
