@@ -9,6 +9,7 @@ TagManager:
   - Wall
   - Block
   - GridArea
+  - Enemy
   layers:
   - Default
   - TransparentFX
