@@ -22,7 +22,6 @@ public class Snake : MonoBehaviour
 
     private void Update()
     {
-        // Only allow turning up or down while moving in the x-axis
         if (direction.x != 0f)
         {
             if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow)) {
@@ -31,7 +30,6 @@ public class Snake : MonoBehaviour
                 input = Vector2Int.down;
             }
         }
-        // Only allow turning left or right while moving in the y-axis
         else if (direction.y != 0f)
         {
             if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow)) {
@@ -44,49 +42,36 @@ public class Snake : MonoBehaviour
 
     private void FixedUpdate()
     {
-        // Wait until the next update before proceeding
         if (Time.time < nextUpdate) {
             return;
         }
 
-        // Set the new direction based on the input
         if (input != Vector2Int.zero) {
             direction = input;
         }
 
-        // Set each segment's position to be the same as the one it follows. We
-        // must do this in reverse order so the position is set to the previous
-        // position, otherwise they will all be stacked on top of each other.
         for (int i = segments.Count - 1; i > 0; i--) {
             segments[i].position = segments[i - 1].position;
         }
 
-        // Move the snake in the direction it is facing
-        // Round the values to ensure it aligns to the grid
         int x = Mathf.RoundToInt(transform.position.x) + direction.x;
         int y = Mathf.RoundToInt(transform.position.y) + direction.y;
         transform.position = new Vector2(x, y);
 
-        // Set the next update time based on the speed
         nextUpdate = Time.time + (1f / (speed * speedMultiplier));
     }
 
-    // Laesst die Schlange wachsen. Wird eine "farbe" uebergeben, bekommt das neue
-    // Segment diese Farbe (das gerade verschluckte Food). Ohne Farbe (z.B. die
-    // Start-Segmente) behaelt das Segment die Standardfarbe des Prefabs.
-    public void Grow(Color? farbe = null)
+    // typ == null  →  Startsegment, behaelt die Prefab-Standardfarbe (gruen)
+    // typ != null  →  verschlucktes Food, bekommt Farbe + Kategorie der Unterkategorie
+    public void Grow(Nahrungstyp typ = null)
     {
         Transform segment = Instantiate(segmentPrefab);
         segment.position = segments[segments.Count - 1].position;
 
-        if (farbe.HasValue)
-        {
-            SpriteRenderer sr = segment.GetComponent<SpriteRenderer>();
-
-            if (sr != null) {
-                sr.color = farbe.Value;
-            }
-        }
+        // SnakeSegment-Komponente zur Laufzeit anhaengen und Typ setzen.
+        // Kein Prefab-Umbau noetig.
+        SnakeSegment snakeSegment = segment.gameObject.AddComponent<SnakeSegment>();
+        snakeSegment.SetzeTyp(typ);
 
         segments.Add(segment);
     }
@@ -96,18 +81,15 @@ public class Snake : MonoBehaviour
         direction = Vector2Int.right;
         transform.position = Vector3.zero;
 
-        // Start at 1 to skip destroying the head
         for (int i = 1; i < segments.Count; i++) {
             Destroy(segments[i].gameObject);
         }
 
-        // Clear the list but add back this as the head
         segments.Clear();
         segments.Add(transform);
 
-        // -1 since the head is already in the list
         for (int i = 0; i < initialSize - 1; i++) {
-            Grow();
+            Grow(); // kein Typ → Startsegmente bleiben gruen
         }
     }
 
@@ -130,15 +112,10 @@ public class Snake : MonoBehaviour
         {
             Food food = other.GetComponent<Food>();
 
-            // Erst die Farbe des Foods auslesen ...
-            Color? farbe = (food != null && food.AktuellerTyp != null)
-                ? food.AktuellerTyp.farbe
-                : (Color?)null;
+            // Typ auslesen → wachsen → Food neu platzieren (neue Kategorie auswuerfeln)
+            Nahrungstyp typ = (food != null) ? food.AktuellerTyp : null;
+            Grow(typ);
 
-            // ... dann mit dieser Farbe wachsen ...
-            Grow(farbe);
-
-            // ... und zuletzt das Food neu platzieren (wuerfelt einen neuen Typ aus)
             if (food != null) {
                 food.RandomizePosition();
             }
@@ -169,5 +146,4 @@ public class Snake : MonoBehaviour
 
         transform.position = position;
     }
-
 }
