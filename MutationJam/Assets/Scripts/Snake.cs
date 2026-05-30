@@ -68,11 +68,18 @@ public class Snake : MonoBehaviour
 
         float stepDuration = 1f / (speed * speedMultiplier);
 
-        // 1. Segmente flüssig verschieben und skalieren
+        // 1. Segmente bewegen (mit strikter Grid-Rundung zur Drift-Vermeidung)
         for (int i = segments.Count - 1; i > 0; i--)
         {
             Transform currentSeg = segments[i];
-            Vector3 targetPos = segments[i - 1].position;
+
+            // FIX 1: Gnadenloses Runden der Zielkoordinaten, exakt wie in deinem Original.
+            // Ohne das Runden kopiert der Schwanz die Float-Ungenauigkeiten der Tween-Animation.
+            Vector3 targetPos = new Vector3(
+                Mathf.RoundToInt(segments[i - 1].position.x),
+                Mathf.RoundToInt(segments[i - 1].position.y),
+                0f
+            );
 
             LeanTween.cancel(currentSeg.gameObject);
 
@@ -80,7 +87,6 @@ public class Snake : MonoBehaviour
                 .setEase(segmentEaseType)
                 .setUseEstimatedTime(true);
 
-            // Raupen-Effekt (Squash & Stretch)
             float delay = i * RaupenFaktor;
 
             LeanTween.scale(currentSeg.gameObject, new Vector3(squashAmount, 2f - squashAmount, 1f), stepDuration * 0.5f)
@@ -97,7 +103,7 @@ public class Snake : MonoBehaviour
                 });
         }
 
-        // 2. Kopf bewegen (Index 0)
+        // 2. Kopf bewegen
         LeanTween.cancel(gameObject);
 
         int x = Mathf.RoundToInt(transform.position.x) + direction.x;
@@ -121,8 +127,12 @@ public class Snake : MonoBehaviour
     {
         Transform segment = Instantiate(segmentPrefab);
 
-        // Wenn wir bereits Segmente haben, spawnen wir das neue an der Position des letzten
-        segment.position = segments[segments.Count - 1].position;
+        // Neues Segment startet am Schwanzende
+        segment.position = new Vector3(
+            Mathf.RoundToInt(segments[segments.Count - 1].position.x),
+            Mathf.RoundToInt(segments[segments.Count - 1].position.y),
+            0f
+        );
         segment.localScale = Vector3.zero;
 
         LeanTween.scale(segment.gameObject, Vector3.one, 0.2f)
@@ -132,18 +142,7 @@ public class Snake : MonoBehaviour
         SnakeSegment snakeSegment = segment.gameObject.AddComponent<SnakeSegment>();
         snakeSegment.SetzeTyp(typ);
 
-        // Gefressene Stücke werden direkt hinter dem Kopf (Index 1) eingefügt,
-        // Startsegmente (beim Reset) hängen wir einfach hinten an.
-        if (typ != null && segments.Count > 1)
-        {
-            segments.Insert(1, segment);
-            // Das neue Segment optisch auf die Position des Kopfes setzen, damit es "ausgestoßen" wird
-            segment.position = transform.position;
-        }
-        else
-        {
-            segments.Add(segment);
-        }
+        segments.Add(segment);
     }
 
     public void ResetState()
@@ -167,7 +166,7 @@ public class Snake : MonoBehaviour
 
         for (int i = 0; i < initialSize - 1; i++)
         {
-            Grow(); // typ ist null -> bleibt grün und wird vom Matcher ignoriert
+            Grow();
         }
     }
 
@@ -207,6 +206,16 @@ public class Snake : MonoBehaviour
         }
         else if (other.gameObject.CompareTag("Obstacle"))
         {
+            // FIX 2: Verhindert Selbstzerstörung durch dicke Colliders beim Tweening
+            int segmentIndex = segments.IndexOf(other.transform);
+
+            // Wenn das getroffene Objekt Teil der Schlange ist UND es sich um den direkten Hals (Index 1 oder 2) handelt:
+            // Ignoriere die Kollision. Der Kopf streift den Hals nur visuell durch den Squash-Effekt.
+            if (segmentIndex > 0 && segmentIndex <= 2)
+            {
+                return;
+            }
+
             ResetState();
         }
         else if (other.gameObject.CompareTag("Wall"))
