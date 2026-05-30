@@ -94,7 +94,7 @@ LightmapSettings:
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
   m_LightingDataAsset: {fileID: 0}
-  m_LightingSettings: {fileID: 207786029}
+  m_LightingSettings: {fileID: 441253397}
 --- !u!196 &4
 NavMeshSettings:
   serializedVersion: 2
@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &67579039
+--- !u!1 &291982053
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,8 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 67579041}
-  - component: {fileID: 67579040}
+  - component: {fileID: 291982055}
+  - component: {fileID: 291982054}
   m_Layer: 0
   m_Name: UIDocument
   m_TagString: Untagged
@@ -136,13 +136,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!114 &67579040
+--- !u!114 &291982054
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 67579039}
+  m_GameObject: {fileID: 291982053}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 19102, guid: 0000000000000000e000000000000000, type: 0}
@@ -156,13 +156,13 @@ MonoBehaviour:
   m_WorldSpaceSizeMode: 1
   m_WorldSpaceWidth: 1920
   m_WorldSpaceHeight: 1080
---- !u!4 &67579041
+--- !u!4 &291982055
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 67579039}
+  m_GameObject: {fileID: 291982053}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -171,7 +171,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!850595691 &207786029
+--- !u!850595691 &441253397
 LightingSettings:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -644,7 +644,7 @@ MonoBehaviour:
   speed: 20
   speedMultiplier: 1
   initialSize: 4
-  moveThroughWalls: 0
+  moveThroughWalls: 1
 --- !u!50 &1161375265
 Rigidbody2D:
   serializedVersion: 5
@@ -847,7 +847,7 @@ Transform:
   m_GameObject: {fileID: 1406060357}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 6.41, z: 0}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -866,13 +866,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridArea: {fileID: 864387895}
-  symbole:
-  - bezeichnung: Kreis
-    sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
-  - bezeichnung: Rechteck
-    sprite: {fileID: 21300000, guid: b032c5177ca43c04dafb570388ade875, type: 3}
-  - bezeichnung: Dunkel
-    sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  symbole: []
 --- !u!1 &1431457602
 GameObject:
   m_ObjectHideFlags: 0
@@ -1196,7 +1190,7 @@ Transform:
   m_GameObject: {fileID: 8791851091651076918}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 11.6, z: 0}
+  m_LocalPosition: {x: 0, y: 9.41, z: 0}
   m_LocalScale: {x: 45, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1287,4 +1281,4 @@ SceneRoots:
   - {fileID: 1487117394}
   - {fileID: 1431457605}
   - {fileID: 962302029}
-  - {fileID: 67579041}
+  - {fileID: 291982055}
