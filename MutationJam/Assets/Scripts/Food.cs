@@ -4,23 +4,23 @@ using UnityEngine;
 [RequireComponent(typeof(SpriteRenderer))]
 public class Food : MonoBehaviour
 {
-    // Eine Unterkategorie von Food. Vorerst nur Bezeichnung + Sprite,
+    // Eine Unterkategorie von Food. Vorerst nur Bezeichnung + Farbe,
     // spaeter koennen hier z.B. Punktwerte oder Effekte dazukommen.
     [System.Serializable]
-    public class Nahrungssymbol
+    public class Nahrungstyp
     {
-        public string bezeichnung;   // z.B. "Herz", "Kirschen", "Sterne"
-        public Sprite sprite;
+        public string bezeichnung;          // z.B. "Herz", "Kirschen", "Sterne"
+        public Color farbe = Color.white;   // Farbe des Food (und spaeter des Segments)
     }
 
     public Collider2D gridArea;
 
-    [Tooltip("Im Inspector befuellen, z.B. drei Eintraege: Herz, Kirschen, Sterne")]
-    public Nahrungssymbol[] symbole;
+    [Tooltip("Im Inspector befuellen, z.B. drei Eintraege mit unterschiedlichen Farben")]
+    public Nahrungstyp[] typen;
 
-    // Welches Symbol das aktuell liegende Food gerade hat.
+    // Welchen Typ das aktuell liegende Food gerade hat.
     // Wird von der Snake beim Einsammeln ausgelesen.
-    public Nahrungssymbol AktuellesSymbol { get; private set; }
+    public Nahrungstyp AktuellerTyp { get; private set; }
 
     private Snake snake;
     private SpriteRenderer spriteRenderer;
@@ -63,24 +63,24 @@ public class Food : MonoBehaviour
 
         transform.position = new Vector2(x, y);
 
-        // Bei jedem Neuplatzieren ein neues Symbol auswuerfeln
-        WaehleZufaelligesSymbol();
+        // Bei jedem Neuplatzieren einen neuen Typ auswuerfeln
+        WaehleZufaelligenTyp();
     }
 
-    private void WaehleZufaelligesSymbol()
+    private void WaehleZufaelligenTyp()
     {
-        if (symbole == null || symbole.Length == 0) {
+        if (typen == null || typen.Length == 0) {
             return;
         }
 
-        AktuellesSymbol = symbole[Random.Range(0, symbole.Length)];
+        AktuellerTyp = typen[Random.Range(0, typen.Length)];
 
-        if (spriteRenderer != null && AktuellesSymbol.sprite != null) {
-            spriteRenderer.sprite = AktuellesSymbol.sprite;
+        if (spriteRenderer != null) {
+            spriteRenderer.color = AktuellerTyp.farbe;
         }
     }
 
     // Hinweis: Das Einsammeln steuert jetzt die Snake (Snake.OnTriggerEnter2D),
-    // damit das Symbol ausgelesen werden kann, BEVOR das Food neu platziert wird.
+    // damit der Typ ausgelesen werden kann, BEVOR das Food neu platziert wird.
     // Deshalb gibt es hier kein OnTriggerEnter2D mehr.
 }

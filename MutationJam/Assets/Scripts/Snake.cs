@@ -71,23 +71,20 @@ public class Snake : MonoBehaviour
         nextUpdate = Time.time + (1f / (speed * speedMultiplier));
     }
 
-    // Laesst die Schlange wachsen. Wird ein "symbol" uebergeben, zeigt das neue
-    // Segment dieses Symbol an (z.B. das gerade verschluckte Herz/Kirsche/Stern).
-    // Ohne Symbol (z.B. die Start-Segmente) bleibt der normale Koerper-Sprite.
-    public void Grow(Sprite symbol = null)
+    // Laesst die Schlange wachsen. Wird eine "farbe" uebergeben, bekommt das neue
+    // Segment diese Farbe (das gerade verschluckte Food). Ohne Farbe (z.B. die
+    // Start-Segmente) behaelt das Segment die Standardfarbe des Prefabs.
+    public void Grow(Color? farbe = null)
     {
         Transform segment = Instantiate(segmentPrefab);
         segment.position = segments[segments.Count - 1].position;
 
-        if (symbol != null)
+        if (farbe.HasValue)
         {
             SpriteRenderer sr = segment.GetComponent<SpriteRenderer>();
 
-            if (sr != null)
-            {
-                sr.sprite = symbol;
-                // Sonst wuerde die gruene Koerperfarbe des Prefabs das Symbol einfaerben
-                sr.color = Color.white;
+            if (sr != null) {
+                sr.color = farbe.Value;
             }
         }
 
@@ -133,15 +130,15 @@ public class Snake : MonoBehaviour
         {
             Food food = other.GetComponent<Food>();
 
-            // Erst das Symbol des Foods auslesen ...
-            Sprite symbol = (food != null && food.AktuellesSymbol != null)
-                ? food.AktuellesSymbol.sprite
-                : null;
+            // Erst die Farbe des Foods auslesen ...
+            Color? farbe = (food != null && food.AktuellerTyp != null)
+                ? food.AktuellerTyp.farbe
+                : (Color?)null;
 
-            // ... dann mit diesem Symbol wachsen ...
-            Grow(symbol);
+            // ... dann mit dieser Farbe wachsen ...
+            Grow(farbe);
 
-            // ... und zuletzt das Food neu platzieren (wuerfelt ein neues Symbol aus)
+            // ... und zuletzt das Food neu platzieren (wuerfelt einen neuen Typ aus)
             if (food != null) {
                 food.RandomizePosition();
             }
