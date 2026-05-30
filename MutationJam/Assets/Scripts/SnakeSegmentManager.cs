@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(Snake))]
@@ -11,75 +11,58 @@ public class SnakeSegmentManager : MonoBehaviour
         snake = GetComponent<Snake>();
     }
 
-    public void PruefeUndZerkleinereKette()
+    // Prueft solange auf 3er-Reihen, bis keine mehr gefunden werden (Kaskaden).
+    public void PruefeKombos()
     {
-        List<Transform> segments = snake.Segments;
-
-        if (segments.Count < 4) return;
-
-        for (int i = 1; i < segments.Count - 2; i++)
-        {
-            SnakeSegment seg1 = segments[i].GetComponent<SnakeSegment>();
-            SnakeSegment seg2 = segments[i + 1].GetComponent<SnakeSegment>();
-            SnakeSegment seg3 = segments[i + 2].GetComponent<SnakeSegment>();
-
-            if (seg1 != null && seg2 != null && seg3 != null &&
-                seg1.Typ != null && seg2.Typ != null && seg3.Typ != null)
-            {
-                if (seg1.Typ.bezeichnung == seg2.Typ.bezeichnung &&
-                    seg2.Typ.bezeichnung == seg3.Typ.bezeichnung)
-                {
-                    ZerstoereSegmenteUndSchliesseLuecke(i, i + 2);
-                    break;
-                }
-            }
-        }
+        while (PruefeEinzelneKombo()) { }
     }
 
-    private void ZerstoereSegmenteUndSchliesseLuecke(int startIndex, int endIndex)
+    // Rueckwaertskompatibilitaet falls Snake.OnTriggerEnter2D noch den alten Namen nutzt
+    public void PruefeUndZerkleinereKette() => PruefeKombos();
+
+    private bool PruefeEinzelneKombo()
     {
-        List<Transform> segments = snake.Segments;
-        List<Transform> zuZerstoeren = new List<Transform>();
+        IReadOnlyList<Transform> segmente = snake.Segmente;
 
-        for (int i = startIndex; i <= endIndex; i++)
+        // Mindestens Kopf + 3 Koerper-Segmente noetig
+        if (segmente.Count < 4) return false;
+
+        Nahrungstyp runTyp = null;
+        int runStart = -1;
+        int runLaenge = 0;
+
+        // Index 0 ist der Kopf (kein SnakeSegment) â†’ ab Index 1 starten
+        for (int i = 1; i < segmente.Count; i++)
         {
-            zuZerstoeren.Add(segments[i]);
-        }
+            Nahrungstyp typ = segmente[i].GetComponent<SnakeSegment>()?.Typ;
 
-        // Strikte Rasterung der Zielkoordinate
-        Vector3 zielPosition = new Vector3(
-            Mathf.RoundToInt(segments[startIndex].position.x),
-            Mathf.RoundToInt(segments[startIndex].position.y),
-            0f
-        );
-
-        foreach (Transform seg in zuZerstoeren)
-        {
-            LeanTween.cancel(seg.gameObject);
-            segments.Remove(seg);
-            Destroy(seg.gameObject);
-        }
-
-        int ritz = startIndex;
-        for (int i = ritz; i < segments.Count; i++)
-        {
-            LeanTween.cancel(segments[i].gameObject);
-
-            if (i == ritz)
+            if (typ != null && typ == runTyp)
             {
-                segments[i].position = zielPosition;
+                runLaenge++;
             }
             else
             {
-                // Auch hier: Nachrückende Teile strikt auf das Grid zwingen
-                segments[i].position = new Vector3(
-                    Mathf.RoundToInt(segments[i - 1].position.x),
-                    Mathf.RoundToInt(segments[i - 1].position.y),
-                    0f
-                );
+                if (runLaenge >= 3)
+                {
+                    snake.EntferneSegmente(runStart, runLaenge);
+                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Neue Segmentanzahl: {snake.Segmente.Count}");
+                    return true;
+                }
+
+                runTyp = typ;
+                runStart = i;
+                runLaenge = 1;
             }
         }
 
-        Debug.Log($"Match-3 aufgelöst! Neue Segmente: {segments.Count}");
+        // Letzten laufenden Block noch pruefen (Reihe bis ans Schwanzende)
+        if (runLaenge >= 3)
+        {
+            snake.EntferneSegmente(runStart, runLaenge);
+            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Neue Segmentanzahl: {snake.Segmente.Count}");
+            return true;
+        }
+
+        return false;
     }
 }

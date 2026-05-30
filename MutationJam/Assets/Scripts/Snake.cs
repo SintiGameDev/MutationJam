@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -11,17 +12,21 @@ public class Snake : MonoBehaviour
     public int initialSize = 4;
     public bool moveThroughWalls = false;
 
-    [Header("Juice Einstellungen (LeanTween)")]
-    public LeanTweenType moveEaseType = LeanTweenType.linear;
-    public LeanTweenType segmentEaseType = LeanTweenType.easeOutQuad;
-    public float squashAmount = 1.25f;
-    public float RaupenFaktor = 0.05f;
+    [Header("Juice-Einstellungen")]
+    [Tooltip("Wie stark der Squash-Effekt ist (z.B. 1.3 = 30% breiter)")]
+    public float squashBetrag = 1.3f;
+    [Tooltip("Wie lange ein kompletter Squash-Zyklus dauert, als Anteil eines Schritt-Ticks (0..1)")]
+    [Range(0.1f, 1f)]
+    public float squashDauer = 0.6f;
+    [Tooltip("Verzoegerung pro Segment-Index, damit die Welle sichtbar nachlaeuft")]
+    public float raupenVerzoegerung = 0.04f;
 
     private readonly List<Transform> segments = new List<Transform>();
     private Vector2Int input;
     private float nextUpdate;
 
-    public List<Transform> Segments => segments;
+    // Liest die Segmentliste fuer den SnakeSegmentManager
+    public IReadOnlyList<Transform> Segmente => segments;
 
     private void Start()
     {
@@ -66,88 +71,132 @@ public class Snake : MonoBehaviour
             direction = input;
         }
 
-        float stepDuration = 1f / (speed * speedMultiplier);
-
-        // 1. Segmente bewegen (mit strikter Grid-Rundung zur Drift-Vermeidung)
+        // --- Positionen sofort setzen (grid-exakt, kein Tween-Drift) ---
         for (int i = segments.Count - 1; i > 0; i--)
         {
-            Transform currentSeg = segments[i];
-
-            // FIX 1: Gnadenloses Runden der Zielkoordinaten, exakt wie in deinem Original.
-            // Ohne das Runden kopiert der Schwanz die Float-Ungenauigkeiten der Tween-Animation.
-            Vector3 targetPos = new Vector3(
-                Mathf.RoundToInt(segments[i - 1].position.x),
-                Mathf.RoundToInt(segments[i - 1].position.y),
-                0f
-            );
-
-            LeanTween.cancel(currentSeg.gameObject);
-
-            LeanTween.move(currentSeg.gameObject, targetPos, stepDuration)
-                .setEase(segmentEaseType)
-                .setUseEstimatedTime(true);
-
-            float delay = i * RaupenFaktor;
-
-            LeanTween.scale(currentSeg.gameObject, new Vector3(squashAmount, 2f - squashAmount, 1f), stepDuration * 0.5f)
-                .setEase(LeanTweenType.easeOutQuad)
-                .setDelay(delay)
-                .setUseEstimatedTime(true)
-                .setOnComplete(() => {
-                    if (currentSeg != null)
-                    {
-                        LeanTween.scale(currentSeg.gameObject, Vector3.one, stepDuration * 0.5f)
-                            .setEase(LeanTweenType.easeInOutQuad)
-                            .setUseEstimatedTime(true);
-                    }
-                });
+            segments[i].position = segments[i - 1].position;
         }
-
-        // 2. Kopf bewegen
-        LeanTween.cancel(gameObject);
 
         int x = Mathf.RoundToInt(transform.position.x) + direction.x;
         int y = Mathf.RoundToInt(transform.position.y) + direction.y;
-        Vector3 headTargetPos = new Vector2(x, y);
+        transform.position = new Vector2(x, y);
 
-        LeanTween.move(gameObject, headTargetPos, stepDuration)
-            .setEase(moveEaseType)
-            .setUseEstimatedTime(true);
+        float stepDauer = 1f / (speed * speedMultiplier);
+        nextUpdate = Time.fixedTime + stepDauer;
 
-        LeanTween.scale(gameObject, new Vector3(squashAmount, 2f - squashAmount, 1f), stepDuration * 0.3f)
-            .setUseEstimatedTime(true)
-            .setOnComplete(() => {
-                LeanTween.scale(gameObject, Vector3.one, stepDuration * 0.7f).setUseEstimatedTime(true);
-            });
-
-        nextUpdate = Time.fixedTime + stepDuration;
+        // --- Squash-Welle ueber alle Segmente starten ---
+        SpielSquashWelle(stepDauer);
     }
 
+    // Startet fuer jedes Segment eine eigene Coroutine mit gestaffeltem Delay.
+    // Laeuft vollstaendig unabhaengig von FixedUpdate → kein Cancel-Problem.
+    private void SpielSquashWelle(float stepDauer)
+    {
+        for (int i = 0; i < segments.Count; i++)
+        {
+            if (segments[i] != null)
+            {
+                StartCoroutine(SquashSegment(segments[i], i, stepDauer));
+            }
+        }
+    }
+
+    // Squasht ein einzelnes Segment: erst breit+flach, dann zurueck auf (1,1,1).
+    private IEnumerator SquashSegment(Transform seg, int index, float stepDauer)
+    {
+        // Staffelung: spaetere Segmente starten etwas verzoegert
+        float verzoegerung = index * raupenVerzoegerung;
+        if (verzoegerung > 0f)
+        {
+            yield return new WaitForSeconds(verzoegerung);
+        }
+
+        if (seg == null) yield break;
+
+        // Gesamtdauer der Animation (als Anteil des Schritt-Ticks, damit es
+        // bei hoher Geschwindigkeit nicht ueber den naechsten Tick laeuft)
+        float animDauer = stepDauer * squashDauer;
+        float halbDauer = animDauer * 0.5f;
+
+        // --- Phase 1: Squash rein (breit + flach) ---
+        float elapsed = 0f;
+        Vector3 startScale = seg.localScale;           // i.d.R. (1,1,1)
+        Vector3 squashScale = new Vector3(squashBetrag, 1f / squashBetrag, 1f);
+
+        while (elapsed < halbDauer)
+        {
+            elapsed += Time.deltaTime;
+            if (seg == null) yield break;
+            seg.localScale = Vector3.Lerp(startScale, squashScale, elapsed / halbDauer);
+            yield return null;
+        }
+
+        if (seg == null) yield break;
+        seg.localScale = squashScale;
+
+        // --- Phase 2: Zurueck auf normal ---
+        elapsed = 0f;
+        while (elapsed < halbDauer)
+        {
+            elapsed += Time.deltaTime;
+            if (seg == null) yield break;
+            seg.localScale = Vector3.Lerp(squashScale, Vector3.one, elapsed / halbDauer);
+            yield return null;
+        }
+
+        if (seg == null) yield break;
+        seg.localScale = Vector3.one;
+    }
+
+    // Wachsen: neues Segment erscheint mit Pop-In-Animation
     public void Grow(Nahrungstyp typ = null)
     {
         Transform segment = Instantiate(segmentPrefab);
-
-        // Neues Segment startet am Schwanzende
         segment.position = new Vector3(
             Mathf.RoundToInt(segments[segments.Count - 1].position.x),
             Mathf.RoundToInt(segments[segments.Count - 1].position.y),
             0f
         );
-        segment.localScale = Vector3.zero;
-
-        LeanTween.scale(segment.gameObject, Vector3.one, 0.2f)
-            .setEase(LeanTweenType.easeOutBack)
-            .setUseEstimatedTime(true);
 
         SnakeSegment snakeSegment = segment.gameObject.AddComponent<SnakeSegment>();
         snakeSegment.SetzeTyp(typ);
 
         segments.Add(segment);
+
+        // Pop-In: von 0 auf (1,1,1) skalieren
+        StartCoroutine(PopIn(segment));
+    }
+
+    private IEnumerator PopIn(Transform seg)
+    {
+        float dauer = 0.2f;
+        float elapsed = 0f;
+        seg.localScale = Vector3.zero;
+
+        // Overshoot-Kurve manuell: ueberschiesst kurz ueber 1 hinaus
+        while (elapsed < dauer)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / dauer;
+            // Einfacher Overshoot ohne externe Library
+            float skala = t < 0.7f
+                ? Mathf.Lerp(0f, 1.2f, t / 0.7f)
+                : Mathf.Lerp(1.2f, 1f, (t - 0.7f) / 0.3f);
+
+            if (seg == null) yield break;
+            seg.localScale = new Vector3(skala, skala, 1f);
+            yield return null;
+        }
+
+        if (seg != null)
+        {
+            seg.localScale = Vector3.one;
+        }
     }
 
     public void ResetState()
     {
-        LeanTween.cancelAll();
+        StopAllCoroutines();
 
         direction = Vector2Int.right;
         transform.position = Vector3.zero;
@@ -167,6 +216,40 @@ public class Snake : MonoBehaviour
         for (int i = 0; i < initialSize - 1; i++)
         {
             Grow();
+        }
+    }
+
+    // Entfernt eine zusammenhaengende Reihe gleicher Segmente (fuer SnakeSegmentManager).
+    // Aufgerufen mit dem Start-Index und der Anzahl der zu entfernenden Segmente.
+    public void EntferneSegmente(int startIndex, int anzahl)
+    {
+        for (int i = startIndex; i < startIndex + anzahl; i++)
+        {
+            if (segments[i] != null)
+            {
+                StartCoroutine(PopOut(segments[i]));
+            }
+        }
+        segments.RemoveRange(startIndex, anzahl);
+    }
+
+    private IEnumerator PopOut(Transform seg)
+    {
+        float dauer = 0.15f;
+        float elapsed = 0f;
+        Vector3 startScale = seg != null ? seg.localScale : Vector3.one;
+
+        while (elapsed < dauer)
+        {
+            elapsed += Time.deltaTime;
+            if (seg == null) yield break;
+            seg.localScale = Vector3.Lerp(startScale, Vector3.zero, elapsed / dauer);
+            yield return null;
+        }
+
+        if (seg != null)
+        {
+            Destroy(seg.gameObject);
         }
     }
 
@@ -196,7 +279,7 @@ public class Snake : MonoBehaviour
             SnakeSegmentManager segmentManager = GetComponent<SnakeSegmentManager>();
             if (segmentManager != null)
             {
-                segmentManager.PruefeUndZerkleinereKette();
+                segmentManager.PruefeKombos();
             }
 
             if (food != null)
@@ -206,16 +289,11 @@ public class Snake : MonoBehaviour
         }
         else if (other.gameObject.CompareTag("Obstacle"))
         {
-            // FIX 2: Verhindert Selbstzerstörung durch dicke Colliders beim Tweening
             int segmentIndex = segments.IndexOf(other.transform);
-
-            // Wenn das getroffene Objekt Teil der Schlange ist UND es sich um den direkten Hals (Index 1 oder 2) handelt:
-            // Ignoriere die Kollision. Der Kopf streift den Hals nur visuell durch den Squash-Effekt.
             if (segmentIndex > 0 && segmentIndex <= 2)
             {
                 return;
             }
-
             ResetState();
         }
         else if (other.gameObject.CompareTag("Wall"))
@@ -233,7 +311,6 @@ public class Snake : MonoBehaviour
 
     private void Traverse(Transform wall)
     {
-        LeanTween.cancel(gameObject);
         Vector3 position = transform.position;
 
         if (direction.x != 0f)
