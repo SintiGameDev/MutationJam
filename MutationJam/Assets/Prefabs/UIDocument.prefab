@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 4551655489421551329}
   - component: {fileID: 5636581740479068289}
+  - component: {fileID: 7155337043150580100}
   m_Layer: 0
   m_Name: UIDocument
   m_TagString: Untagged
@@ -52,3 +53,15 @@ MonoBehaviour:
   m_WorldSpaceSizeMode: 1
   m_WorldSpaceWidth: 1920
   m_WorldSpaceHeight: 1080
+--- !u!114 &7155337043150580100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1648975319347134098}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 55b57ad64e9f85147b1ee8d11c66a545, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
