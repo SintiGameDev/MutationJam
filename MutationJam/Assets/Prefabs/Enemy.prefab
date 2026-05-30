@@ -152,5 +152,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0123a9295582ebc459524a70db525fcf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  maxLeben: 100
+  maxLeben: 100000
   punkteBeiTod: 0
