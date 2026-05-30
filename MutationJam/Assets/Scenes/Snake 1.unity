@@ -678,7 +678,6 @@ GameObject:
   - component: {fileID: 1406060359}
   - component: {fileID: 1406060358}
   - component: {fileID: 1406060361}
-  - component: {fileID: 1406060362}
   m_Layer: 0
   m_Name: Food
   m_TagString: Block
@@ -809,32 +808,19 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1406060357}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 83fcf82957452fc45895f6c8b0732d37, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
   gridArea: {fileID: 864387895}
---- !u!114 &1406060362
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1406060357}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: d68e194563c6c4840831b62797932939, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  gridArea: {fileID: 864387895}
-  blockColor:
-    r: 0.95
-    g: 0.75
-    b: 0.2
-    a: 1
-  snake: {fileID: 0}
-  sr: {fileID: 0}
+  symbole:
+  - bezeichnung: Kreis
+    sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  - bezeichnung: Rechteck
+    sprite: {fileID: 21300000, guid: b032c5177ca43c04dafb570388ade875, type: 3}
+  - bezeichnung: Dunkel
+    sprite: {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
 --- !u!1 &1431457602
 GameObject:
   m_ObjectHideFlags: 0

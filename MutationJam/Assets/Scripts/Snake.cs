@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using UnityEngine;
 
 [RequireComponent(typeof(BoxCollider2D))]
@@ -71,10 +71,26 @@ public class Snake : MonoBehaviour
         nextUpdate = Time.time + (1f / (speed * speedMultiplier));
     }
 
-    public void Grow()
+    // Laesst die Schlange wachsen. Wird ein "symbol" uebergeben, zeigt das neue
+    // Segment dieses Symbol an (z.B. das gerade verschluckte Herz/Kirsche/Stern).
+    // Ohne Symbol (z.B. die Start-Segmente) bleibt der normale Koerper-Sprite.
+    public void Grow(Sprite symbol = null)
     {
         Transform segment = Instantiate(segmentPrefab);
         segment.position = segments[segments.Count - 1].position;
+
+        if (symbol != null)
+        {
+            SpriteRenderer sr = segment.GetComponent<SpriteRenderer>();
+
+            if (sr != null)
+            {
+                sr.sprite = symbol;
+                // Sonst wuerde die gruene Koerperfarbe des Prefabs das Symbol einfaerben
+                sr.color = Color.white;
+            }
+        }
+
         segments.Add(segment);
     }
 
@@ -115,7 +131,20 @@ public class Snake : MonoBehaviour
     {
         if (other.gameObject.CompareTag("Food"))
         {
-            Grow();
+            Food food = other.GetComponent<Food>();
+
+            // Erst das Symbol des Foods auslesen ...
+            Sprite symbol = (food != null && food.AktuellesSymbol != null)
+                ? food.AktuellesSymbol.sprite
+                : null;
+
+            // ... dann mit diesem Symbol wachsen ...
+            Grow(symbol);
+
+            // ... und zuletzt das Food neu platzieren (wuerfelt ein neues Symbol aus)
+            if (food != null) {
+                food.RandomizePosition();
+            }
         }
         else if (other.gameObject.CompareTag("Obstacle"))
         {
