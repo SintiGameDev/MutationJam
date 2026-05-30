@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8e9ada895776e241ada9393b16d3b32, type: 3}
+  m_Name: Gelb
+  m_EditorClassIdentifier: 
+  turmPrefab: {fileID: 341460832292589893, guid: b181eb2e785a4ed44a9344035e13e28c,
+    type: 3}
+  reichweite: 5
+  schussrate: 80
+  projektilPrefab: {fileID: 5451908957895355184, guid: 4d5cdb69596782b4bbb0372aec6463ce,
+    type: 3}
