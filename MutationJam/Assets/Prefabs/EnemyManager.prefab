@@ -45,7 +45,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gridArea: {fileID: 0}
-  gegnerPrefab: {fileID: 0}
+  gegnerPrefab: {fileID: 920935275466924229, guid: d6868c54ed150cf4da967ba3bcc66c98,
+    type: 3}
   maxGegner: 5
   startVerzoegerung: 2
   spawnIntervall: 3
