@@ -1,35 +1,60 @@
 using UnityEngine;
-
 public class EnemyFollow2D : MonoBehaviour
 {
     [Header("Bewegungseinstellungen")]
     public float speed = 3f;
 
-    private Transform playerTransform;
-
-    void Start()
+    // Kein Caching in Start mehr: Der Spieler-Kopf bewegt sich, Segmente
+    // koennen verschwinden (Matches). Deshalb wird das Ziel jeden Frame neu
+    // bestimmt.
+    void Update()
     {
-        // Sucht das GameObject mit dem Tag "Player" in der Szene
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        Transform ziel = FindeZiel();
 
-        if (player != null)
+        if (ziel != null)
         {
-            // Speichert die Transform Komponente des Spielers für den schnellen Zugriff
-            playerTransform = player.transform;
-        }
-        else
-        {
-            Debug.LogWarning("Es wurde kein GameObject mit dem Tag 'Player' in der Szene gefunden.");
+            transform.position = Vector2.MoveTowards(
+                transform.position, ziel.position, speed * Time.deltaTime);
         }
     }
 
-    void Update()
+    // Priorisierung: Spieler (Kopf) zuerst, sonst naechstes SnakeSegment.
+    private Transform FindeZiel()
     {
-        // Führt die Bewegung nur aus, wenn der Spieler gefunden wurde
-        if (playerTransform != null)
+        // 1. Spieler (Schlangenkopf) bevorzugen
+        GameObject player = GameObject.FindGameObjectWithTag("Player");
+        if (player != null)
         {
-            // Berechnet den nächsten Schritt in Richtung des Spielers
-            transform.position = Vector2.MoveTowards(transform.position, playerTransform.position, speed * Time.deltaTime);
+            return player.transform;
         }
+
+        // 2. Sonst das naechstgelegene Segment ansteuern
+        return FindeNaechstesSegment();
+    }
+
+    // Sucht das raeumlich naechste SnakeSegment in der Szene.
+    private Transform FindeNaechstesSegment()
+    {
+        SnakeSegment[] segmente = FindObjectsOfType<SnakeSegment>();
+
+        Transform naechstes = null;
+        float kuerzesteDistanz = Mathf.Infinity;
+
+        foreach (SnakeSegment seg in segmente)
+        {
+            if (seg == null)
+            {
+                continue;
+            }
+
+            float distanz = Vector2.Distance(transform.position, seg.transform.position);
+            if (distanz < kuerzesteDistanz)
+            {
+                kuerzesteDistanz = distanz;
+                naechstes = seg.transform;
+            }
+        }
+
+        return naechstes;
     }
 }

@@ -450,6 +450,11 @@ PrefabInstance:
         type: 3}
     - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
         type: 3}
+      propertyPath: startVerzoegerung
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
+        type: 3}
       propertyPath: mindestAbstandZumSpieler
       value: 8
       objectReference: {fileID: 0}

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
 public class UIManager : MonoBehaviour
@@ -20,7 +21,13 @@ public class UIManager : MonoBehaviour
         scoreValue = root.Q<Label>("score-value");
 
         menuButton.clicked += () => { /* Menü öffnen */ };
-        restartButton.clicked += () => { if (snake != null) snake.ResetState(); };
+        restartButton.clicked += () => {
+            // Ermittelt den Index der aktuell aktiven Szene
+            int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+
+            // Lädt die Szene anhand des Index komplett neu
+            SceneManager.LoadScene(currentSceneIndex);
+        };
 
         // Score: auf Aenderungen reagieren und den aktuellen Wert direkt anzeigen
         if (ScoreManager.Instance != null)
