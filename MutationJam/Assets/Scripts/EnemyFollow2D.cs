@@ -6,39 +6,41 @@ public class EnemyFollow2D : MonoBehaviour
     public float speed = 3f;
 
     [Header("Kampf")]
-    [Tooltip("Schaden, den der Gegner pro Anrempeln an ein Segment macht.")]
+    [Tooltip("Schaden, den der Gegner pro Anrempeln an ein Segment ODER den (allein stehenden) Kopf macht.")]
     public float schadenAnSegment = 1f;
 
     [Header("Rueckstoss")]
-    [Tooltip("Wie weit (in Einheiten) der Gegner beim Treffer zurueckgeschoben wird.")]
     public float rueckstossDistanz = 1.5f;
-    [Tooltip("Dauer (Sekunden) der Rueckstoss-Bewegung. Kurz halten fuer einen knackigen Stoss.")]
     public float rueckstossDauer = 0.15f;
-    [Tooltip("Dauer (Sekunden), die der Gegner NACH dem Rueckstoss betaeubt stillsteht.")]
     public float stunDauer = 0.4f;
 
-    // Drei Phasen: frei suchend, im Rueckstoss, oder betaeubt.
     private enum Zustand { Frei, Rueckstoss, Stun }
     private Zustand zustand = Zustand.Frei;
 
-    private float timer;                 // Restzeit der aktuellen Phase
-    private Vector2 rueckstossRichtung;  // Richtung, in die gestossen wird
+    private float timer;
+    private Vector2 rueckstossRichtung;
 
-    // Segmente, die der Gegner gerade ueberlappt (ueber Enter/Exit gepflegt).
+    // Ueberlappte Koerper-Segmente
     private readonly List<Transform> ueberlappendeSegmente = new List<Transform>();
+
+    // Ueberlappter Kopf (nur angreifbar, wenn die Schlange keine Segmente mehr hat)
+    private Transform ueberlappenderKopf;
+    private Snake kopfSnake;
 
     void Update()
     {
-        // Zerstoerte (null) Eintraege entfernen – z.B. durch Matches/Tod geloeschte Segmente
         ueberlappendeSegmente.RemoveAll(s => s == null);
 
         switch (zustand)
         {
             case Zustand.Frei:
-                // Ueberlappt der Gegner ein Segment? -> Schaden + Rueckstoss ausloesen
-                if (ueberlappendeSegmente.Count > 0)
+                bool kopfVerwundbar = kopfSnake != null
+                                      && ueberlappenderKopf != null
+                                      && kopfSnake.NurKopfUebrig;
+
+                if (ueberlappendeSegmente.Count > 0 || kopfVerwundbar)
                 {
-                    StarteRueckstoss();
+                    StarteRueckstoss(kopfVerwundbar);
                 }
                 else
                 {
@@ -68,29 +70,47 @@ public class EnemyFollow2D : MonoBehaviour
         }
     }
 
-    // Macht Schaden am getroffenen Segment und loest dann den Rueckstoss aus.
-    private void StarteRueckstoss()
+    // Macht Schaden am naechsten Ziel (Segment ODER Kopf) und loest Rueckstoss aus.
+    private void StarteRueckstoss(bool kopfVerwundbar)
     {
-        Transform naechstes = NaechstesUeberlapptesSegment();
+        Transform ziel = NaechstesUeberlapptesSegment();
+        float zielDist = (ziel != null)
+            ? Vector2.Distance(transform.position, ziel.position)
+            : Mathf.Infinity;
+        bool zielIstKopf = false;
 
-        // Schaden zufuegen (einmal pro Anrempeln)
-        if (naechstes != null)
+        // Kopf als Ziel beruecksichtigen, falls verwundbar und naeher
+        if (kopfVerwundbar && ueberlappenderKopf != null)
         {
-            SnakeSegment segment = naechstes.GetComponent<SnakeSegment>();
-            if (segment != null)
+            float kopfDist = Vector2.Distance(transform.position, ueberlappenderKopf.position);
+            if (kopfDist < zielDist)
             {
-                segment.NimmSchaden(schadenAnSegment);
+                ziel = ueberlappenderKopf;
+                zielIstKopf = true;
             }
         }
 
-        Vector2 richtung = (naechstes != null)
-            ? (Vector2)transform.position - (Vector2)naechstes.position
-            : Vector2.zero;
+        if (ziel != null)
+        {
+            if (zielIstKopf)
+            {
+                kopfSnake.KopfNimmtSchaden(schadenAnSegment);
+            }
+            else
+            {
+                SnakeSegment segment = ziel.GetComponent<SnakeSegment>();
+                if (segment != null) segment.NimmSchaden(schadenAnSegment);
+            }
 
-        // Exakte Ueberlappung -> zufaellige Richtung, damit es eine Wegrichtung gibt
-        rueckstossRichtung = (richtung.sqrMagnitude < 0.0001f)
-            ? Random.insideUnitCircle.normalized
-            : richtung.normalized;
+            Vector2 richtung = (Vector2)transform.position - (Vector2)ziel.position;
+            rueckstossRichtung = (richtung.sqrMagnitude < 0.0001f)
+                ? Random.insideUnitCircle.normalized
+                : richtung.normalized;
+        }
+        else
+        {
+            rueckstossRichtung = Random.insideUnitCircle.normalized;
+        }
 
         zustand = Zustand.Rueckstoss;
         timer = rueckstossDauer;
@@ -123,10 +143,7 @@ public class EnemyFollow2D : MonoBehaviour
         float kuerzesteDistanz = Mathf.Infinity;
         foreach (SnakeSegment seg in segmente)
         {
-            if (seg == null)
-            {
-                continue;
-            }
+            if (seg == null) continue;
             float distanz = Vector2.Distance(transform.position, seg.transform.position);
             if (distanz < kuerzesteDistanz)
             {
@@ -143,10 +160,7 @@ public class EnemyFollow2D : MonoBehaviour
         float kuerzesteDistanz = Mathf.Infinity;
         foreach (Transform seg in ueberlappendeSegmente)
         {
-            if (seg == null)
-            {
-                continue;
-            }
+            if (seg == null) continue;
             float distanz = Vector2.Distance(transform.position, seg.position);
             if (distanz < kuerzesteDistanz)
             {
@@ -159,10 +173,20 @@ public class EnemyFollow2D : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.GetComponent<SnakeSegment>() != null &&
-            !ueberlappendeSegmente.Contains(other.transform))
+        // Koerper-Segment
+        if (other.GetComponent<SnakeSegment>() != null)
         {
-            ueberlappendeSegmente.Add(other.transform);
+            if (!ueberlappendeSegmente.Contains(other.transform))
+                ueberlappendeSegmente.Add(other.transform);
+            return;
+        }
+
+        // Kopf (Snake-Komponente)
+        Snake snake = other.GetComponent<Snake>();
+        if (snake != null)
+        {
+            ueberlappenderKopf = other.transform;
+            kopfSnake = snake;
         }
     }
 
@@ -171,6 +195,13 @@ public class EnemyFollow2D : MonoBehaviour
         if (other.GetComponent<SnakeSegment>() != null)
         {
             ueberlappendeSegmente.Remove(other.transform);
+            return;
+        }
+
+        if (other.transform == ueberlappenderKopf)
+        {
+            ueberlappenderKopf = null;
+            kopfSnake = null;
         }
     }
 }

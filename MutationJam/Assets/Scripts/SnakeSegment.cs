@@ -19,10 +19,8 @@ public class SnakeSegment : MonoBehaviour
     public Tower AktuellerTurm { get; private set; }
     public float AktuelleHealth { get; private set; }
 
-    // Effektives Maximum nach Skalierung mit der Mutationsstufe.
     private float effektiveMaxHealth;
 
-    // Mutationsstufe dieses Segments (1 = frisch gefressen, kein Bonus).
     public int Mutationsstufe { get; private set; } = 1;
 
     public GameObject StandardTurmPrefab { private get; set; }
@@ -34,17 +32,28 @@ public class SnakeSegment : MonoBehaviour
 
     public event System.Action<SnakeSegment> OnSegmentGestorben;
 
+    // Beide Renderer-Typen unterstuetzen: 2D-Sprite UND 3D-Mesh.
     private SpriteRenderer spriteRenderer;
+    private MeshRenderer meshRenderer;
+    private Color grundFarbeSprite = Color.white;
+    private Color grundFarbeMesh = Color.white;
+
     private bool istAmSterben = false;
     private StufenAnzeige stufenAnzeige;
-
-    // Grundfarbe (zum Zuruecksetzen nach dem Blitz) und laufende Blitz-Coroutine.
-    private Color grundFarbe = Color.white;
     private Coroutine blitzCoroutine;
 
     private void Awake()
     {
-        // Renderer auf diesem Objekt ODER einem Kind (Sprite kann am Child haengen)
+        ErmittleRenderer();
+
+        effektiveMaxHealth = maxHealth;
+        AktuelleHealth = effektiveMaxHealth;
+    }
+
+    // Sucht Sprite- und/oder Mesh-Renderer (eigenes Objekt oder Kind) und merkt
+    // sich deren aktuelle Grundfarbe.
+    private void ErmittleRenderer()
+    {
         spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer == null)
         {
@@ -52,11 +61,18 @@ public class SnakeSegment : MonoBehaviour
         }
         if (spriteRenderer != null)
         {
-            grundFarbe = spriteRenderer.color;
+            grundFarbeSprite = spriteRenderer.color;
         }
 
-        effektiveMaxHealth = maxHealth;
-        AktuelleHealth = effektiveMaxHealth;
+        meshRenderer = GetComponent<MeshRenderer>();
+        if (meshRenderer == null)
+        {
+            meshRenderer = GetComponentInChildren<MeshRenderer>(true);
+        }
+        if (meshRenderer != null && meshRenderer.material != null)
+        {
+            grundFarbeMesh = meshRenderer.material.color;
+        }
     }
 
     public void SetzeTyp(Nahrungstyp typ, int stufe = 1)
@@ -64,53 +80,53 @@ public class SnakeSegment : MonoBehaviour
         Typ = typ;
         Mutationsstufe = Mathf.Max(1, stufe);
 
-        // Leben je nach Mutationsstufe (Turmlevel) neu berechnen und auffuellen.
         effektiveMaxHealth = BerechneMaxHealth();
         AktuelleHealth = effektiveMaxHealth;
 
-        // Start-Segmente (typlos) bekommen WEDER Turm NOCH Stufenanzeige.
         if (typ == null) return;
 
         AktualisiereStufenAnzeige();
 
-        // 2D-Sprite faerben – auch wenn der SpriteRenderer-Child inaktiv ist
+        // 2D-Sprite faerben (Renderer kann am Kind haengen)
         SpriteRenderer sr = GetComponentInChildren<SpriteRenderer>(true);
         if (sr != null)
         {
             sr.color = typ.farbe;
-            spriteRenderer = sr;        // Blitz nutzt denselben Renderer
-            grundFarbe = typ.farbe;     // Grundfarbe fuer das Zuruecksetzen merken
+            spriteRenderer = sr;
+            grundFarbeSprite = typ.farbe;
         }
 
-        // 3D-Sphere: Material des ersten MeshRenderer-Child setzen
+        // 3D-Mesh: Material setzen und dessen Farbe als Grundfarbe merken
         if (typ.material != null)
         {
             MeshRenderer mr = GetComponentInChildren<MeshRenderer>(true);
-            if (mr != null) mr.material = typ.material;
+            if (mr != null)
+            {
+                mr.material = typ.material;
+                meshRenderer = mr;
+                grundFarbeMesh = mr.material.color;
+            }
         }
 
         SpawneTurm(typ);
     }
 
-    // Leben = Basis + Bonus * (Stufe - 1)
     private float BerechneMaxHealth()
     {
         return maxHealth + lebenProMutationsstufe * (Mutationsstufe - 1);
     }
 
-    // Wird vom Gegner bei Kollision aufgerufen
     public void NimmSchaden(float schaden)
     {
         if (istAmSterben) return;
 
         AktuelleHealth -= schaden;
 
-        // Vorherigen Blitz stoppen und Farbe sichern, damit sich Blitze nicht
-        // gegenseitig die Grundfarbe "wegfressen".
+        // Vorherigen Blitz stoppen und Grundfarbe wiederherstellen
         if (blitzCoroutine != null)
         {
             StopCoroutine(blitzCoroutine);
-            if (spriteRenderer != null) spriteRenderer.color = grundFarbe;
+            SetzeFarbe(false);
         }
         blitzCoroutine = StartCoroutine(SchadensBlitz());
 
@@ -122,29 +138,32 @@ public class SnakeSegment : MonoBehaviour
 
     private IEnumerator SchadensBlitz()
     {
-        if (spriteRenderer == null) yield break;
-
         float dauer = BerechneBlitzDauer();
 
-        spriteRenderer.color = Color.white;
+        SetzeFarbe(true);   // weiss
         yield return new WaitForSeconds(dauer);
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.color = grundFarbe;
-        }
+        SetzeFarbe(false);  // zurueck auf Grundfarbe
         blitzCoroutine = null;
     }
 
-    // Viel (Rest-)Leben -> kurzer Blitz; wenig Leben -> langer Blitz (max 0,5 s).
+    // Faerbt beide Renderer (falls vorhanden) weiss bzw. zurueck auf Grundfarbe.
+    private void SetzeFarbe(bool weiss)
+    {
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = weiss ? Color.white : grundFarbeSprite;
+        }
+        if (meshRenderer != null && meshRenderer.material != null)
+        {
+            meshRenderer.material.color = weiss ? Color.white : grundFarbeMesh;
+        }
+    }
+
     private float BerechneBlitzDauer()
     {
         float max = Mathf.Max(0.0001f, effektiveMaxHealth);
-        float ratio = Mathf.Clamp01(AktuelleHealth / max);  // 1 = voll, 0 = leer
-
-        // Bei vollem Leben minBlitzDauer, bei leerem Leben maxBlitzDauer.
+        float ratio = Mathf.Clamp01(AktuelleHealth / max);
         float dauer = Mathf.Lerp(minBlitzDauer, maxBlitzDauer, 1f - ratio);
-
-        // Harte Obergrenze 0,5 s
         return Mathf.Min(dauer, 0.5f);
     }
 

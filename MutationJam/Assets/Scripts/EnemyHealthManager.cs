@@ -1,8 +1,8 @@
 using UnityEngine;
-
 // Kommt auf jeden Gegner. Verwaltet dessen eigene Lebenspunkte:
 //  - Schaden durch Projektile (je nach Projektilwert)
-//  - sofortiger Tod, wenn der SchlangenKOPF den Gegner beruehrt
+//  - sofortiger Tod, wenn der SchlangenKOPF den Gegner FRISST
+//    (nur solange die Schlange noch Koerper-Segmente hat)
 [RequireComponent(typeof(Collider2D))]
 public class EnemyHealthManager : MonoBehaviour
 {
@@ -15,7 +15,6 @@ public class EnemyHealthManager : MonoBehaviour
 
     private float aktuellesLeben;
     private bool istTot = false;
-
     public float AktuellesLeben => aktuellesLeben;
 
     private void Awake()
@@ -23,43 +22,29 @@ public class EnemyHealthManager : MonoBehaviour
         aktuellesLeben = maxLeben;
     }
 
-    // Wird von Projektilen aufgerufen. 'schaden' = Damage-Wert des Projektils.
     public void NimmSchaden(float schaden)
     {
-        if (istTot || schaden <= 0f)
-        {
-            return;
-        }
+        if (istTot || schaden <= 0f) return;
 
         aktuellesLeben -= schaden;
-
         if (aktuellesLeben <= 0f)
         {
             Stirb();
         }
     }
 
-    // Sofortiger Tod, z.B. wenn der Schlangenkopf den Gegner frisst.
     public void SofortToeten()
     {
-        if (istTot)
-        {
-            return;
-        }
-
+        if (istTot) return;
         aktuellesLeben = 0f;
         Stirb();
     }
 
     private void Stirb()
     {
-        if (istTot)
-        {
-            return;
-        }
+        if (istTot) return;
         istTot = true;
 
-        // Optional Punkte vergeben (nur wenn ein ScoreManager existiert)
         if (punkteBeiTod > 0 && ScoreManager.Instance != null)
         {
             ScoreManager.Instance.PunkteHinzufuegen(punkteBeiTod);
@@ -68,14 +53,18 @@ public class EnemyHealthManager : MonoBehaviour
         Destroy(gameObject);
     }
 
-    // Beruehrung durch den Schlangenkopf -> sofort sterben.
-    // Der Kopf ist das GameObject mit der Snake-Komponente; die Koerpersegmente
-    // tragen NUR SnakeSegment, also loesen sie diesen Tod nicht aus.
     private void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.GetComponent<Snake>() != null)
+        Snake snake = other.GetComponent<Snake>();
+        if (snake != null)
         {
-            SofortToeten();
+            // Der Kopf frisst den Gegner NUR, solange noch Koerper-Segmente
+            // existieren. Ist nur noch der Kopf uebrig, ueberlebt der Gegner
+            // und kann den Kopf angreifen (siehe EnemyFollow2D).
+            if (!snake.NurKopfUebrig)
+            {
+                SofortToeten();
+            }
         }
     }
 }
