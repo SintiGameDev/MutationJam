@@ -220,7 +220,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 07e90bc0eae0cea46af72512c9a3c708, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  speed: 3
+  minSpeed: 2
+  maxSpeed: 4
   schadenAnSegment: 1
   rueckstossDistanz: 1.5
   rueckstossDauer: 0.15
@@ -900,7 +901,7 @@ PrefabInstance:
     - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
         type: 3}
       propertyPath: maxGegner
-      value: 100
+      value: 1000
       objectReference: {fileID: 0}
     - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
         type: 3}
@@ -914,13 +915,38 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
         type: 3}
+      propertyPath: startMaxGegner
+      value: 50
+      objectReference: {fileID: 0}
+    - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
+        type: 3}
       propertyPath: startVerzoegerung
-      value: 1
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
+        type: 3}
+      propertyPath: startSpawnIntervall
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
+        type: 3}
+      propertyPath: minimalesSpawnIntervall
+      value: 0.05
       objectReference: {fileID: 0}
     - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
         type: 3}
       propertyPath: mindestAbstandZumSpieler
       value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
+        type: 3}
+      propertyPath: intervallAbnahmeProMinute
+      value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 8886758723266999307, guid: 311c4d3f64ab5574182ae4ecba18818c,
+        type: 3}
+      propertyPath: maxGegnerZuwachsProMinute
+      value: 400
       objectReference: {fileID: 0}
     - target: {fileID: 9055860057152954673, guid: 311c4d3f64ab5574182ae4ecba18818c,
         type: 3}

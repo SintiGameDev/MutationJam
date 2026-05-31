@@ -1,49 +1,33 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-// Spawnt Gegner fortlaufend bis zu einer Maximalzahl.
-// Platzierung beachtet (wie beim FoodSpawner):
-//  innerhalb der gridArea Bounds
-//  nicht auf der Schlange (kein Segment)
-//  nicht zu nah am Kopf (mindestAbstandZumSpieler)
-//  nicht auf einem Food
-//  nicht auf einem anderen Gegner
-//
-// Hinweis: Gegner brauchen den Tag "Enemy" und einen EnemyHealthManager,
-// damit Projektile/Schlangenkopf sie toeten koennen.
 public class EnemySpawner : MonoBehaviour
 {
     [Header("Setup")]
-    [Tooltip("Derselbe Bereich wie bei den Foods.")]
     public Collider2D gridArea;
-
-    [Tooltip("Das Gegner Prefab, das gespawnt wird.")]
     public Transform gegnerPrefab;
 
-    [Header("Spawn Verhalten")]
-    [Min(0)]
-    [Tooltip("Maximale Anzahl gleichzeitig lebender Gegner.")]
-    public int maxGegner = 5;
-
-    [Min(0f)]
-    [Tooltip("Wartezeit (Sekunden) nach Spielstart, bevor gespawnt wird.")]
+    [Header("Basis Spawn Verhalten")]
+    public int startMaxGegner = 20;
     public float startVerzoegerung = 2f;
+    public float startSpawnIntervall = 1f;
 
-    [Min(0.05f)]
-    [Tooltip("Sekunden zwischen zwei Spawn Versuchen (kleiner = schneller).")]
-    public float spawnIntervall = 3f;
+    [Header("Endlos Skalierung")]
+    public float maxGegnerZuwachsProMinute = 30f;
+    public float intervallAbnahmeProMinute = 0.5f;
+    public float minimalesSpawnIntervall = 0.15f;
 
     [Header("Platzierung")]
-    [Min(0f)]
-    [Tooltip("Mindestabstand (in Grid Feldern) zum Schlangenkopf.")]
-    public float mindestAbstandZumSpieler = 5f;
+    public float mindestAbstandZumSpieler = 3f;
 
     private Snake snake;
-
-    // Aktuell platzierte Gegner (kann zerstoerte/null Eintraege enthalten)
     private readonly List<Transform> gegner = new List<Transform>();
 
-    // Anzahl noch lebender Gegner
+    private float ueberlebensZeit = 0f;
+    private float naechsterSpawnZeitpunkt = 0f;
+    private int aktuellesMaxGegner;
+    private float aktuellesIntervall;
+
     public int AnzahlGegner
     {
         get
@@ -64,13 +48,26 @@ public class EnemySpawner : MonoBehaviour
 
     private void Start()
     {
-        float intervall = Mathf.Max(0.05f, spawnIntervall);
-        // Nach startVerzoegerung, dann alle 'intervall' Sekunden SpawneEinen aufrufen
-        InvokeRepeating(nameof(SpawneEinen), startVerzoegerung, intervall);
+        ResetSpawnerState();
     }
 
-    // Wird per InvokeRepeating regelmaessig aufgerufen: spawnt EINEN Gegner,
-    // falls die Maximalzahl noch nicht erreicht ist.
+    private void Update()
+    {
+        ueberlebensZeit += Time.deltaTime;
+        float minutenGespielt = ueberlebensZeit / 60f;
+
+        aktuellesMaxGegner = startMaxGegner + Mathf.FloorToInt(minutenGespielt * maxGegnerZuwachsProMinute);
+
+        aktuellesIntervall = startSpawnIntervall - (minutenGespielt * intervallAbnahmeProMinute);
+        aktuellesIntervall = Mathf.Max(aktuellesIntervall, minimalesSpawnIntervall);
+
+        if (Time.time >= naechsterSpawnZeitpunkt)
+        {
+            SpawneEinen();
+            naechsterSpawnZeitpunkt = Time.time + aktuellesIntervall;
+        }
+    }
+
     public void SpawneEinen()
     {
         EntferneZerstoerte();
@@ -80,22 +77,21 @@ public class EnemySpawner : MonoBehaviour
             return;
         }
 
-        if (AnzahlGegner >= maxGegner)
+        if (AnzahlGegner >= aktuellesMaxGegner)
         {
-            return; // Feld voll nichts tun
+            return;
         }
 
         List<Vector2Int> freieFelder = SammleGueltigeFelder(null);
 
         if (freieFelder.Count == 0)
         {
-            // Kein gueltiges Feld frei beim naechsten Intervall erneut versuchen
+            Debug.LogWarning("EnemySpawner: Kein freies Feld gefunden.");
             return;
         }
 
         Vector2Int feld = freieFelder[Random.Range(0, freieFelder.Count)];
 
-        // HIER ANGEPASST: Z Koordinate auf -1f gesetzt
         Transform neuer = Instantiate(
             gegnerPrefab,
             new Vector3(feld.x, feld.y, -1f),
@@ -104,7 +100,6 @@ public class EnemySpawner : MonoBehaviour
         gegner.Add(neuer);
     }
 
-    // Versetzt einen bestehenden Gegner auf ein neues gueltiges Feld.
     public void PlatziereGegner(Transform g)
     {
         if (g == null) return;
@@ -113,18 +108,13 @@ public class EnemySpawner : MonoBehaviour
 
         if (freieFelder.Count == 0)
         {
-            Debug.LogWarning("EnemySpawner: Kein gueltiges Feld gefunden " +
-                "(evtl. mindestAbstandZumSpieler zu gross fuer das Feld).");
             return;
         }
 
         Vector2Int feld = freieFelder[Random.Range(0, freieFelder.Count)];
-
-        // HIER ANGEPASST: Vector3 genutzt, um Z auf -1f zu setzen
         g.position = new Vector3(feld.x, feld.y, -1f);
     }
 
-    // Sammelt alle Felder im Grid, die alle Bedingungen erfuellen.
     private List<Vector2Int> SammleGueltigeFelder(Transform ausnahme)
     {
         List<Vector2Int> ergebnis = new List<Vector2Int>();
@@ -135,12 +125,8 @@ public class EnemySpawner : MonoBehaviour
         int minY = Mathf.RoundToInt(bounds.min.y);
         int maxY = Mathf.RoundToInt(bounds.max.y);
 
-        // Foods einmalig einsammeln (statt pro Feld erneut zu suchen)
         Food[] foods = FindObjectsOfType<Food>();
-
-        Vector2 kopf = snake != null
-            ? (Vector2)snake.transform.position
-            : Vector2.zero;
+        Vector2 kopf = snake != null ? (Vector2)snake.transform.position : Vector2.zero;
 
         for (int x = minX; x <= maxX; x++)
         {
@@ -158,57 +144,31 @@ public class EnemySpawner : MonoBehaviour
 
     private bool IstGueltig(int x, int y, Vector2 kopf, Food[] foods, Transform ausnahme)
     {
-        // 1. Nicht auf der Schlange
-        if (snake != null && snake.Occupies(x, y))
-        {
-            return false;
-        }
+        if (snake != null && snake.Occupies(x, y)) return false;
 
-        // 2. Nicht zu nah am Kopf
         if (snake != null)
         {
             float distanz = Vector2.Distance(new Vector2(x, y), kopf);
-            if (distanz < mindestAbstandZumSpieler)
-            {
-                return false;
-            }
+            if (distanz < mindestAbstandZumSpieler) return false;
         }
 
-        // 3. Nicht auf einem Food
         foreach (Food food in foods)
         {
             if (Mathf.RoundToInt(food.transform.position.x) == x &&
-                Mathf.RoundToInt(food.transform.position.y) == y)
-            {
-                return false;
-            }
+                Mathf.RoundToInt(food.transform.position.y) == y) return false;
         }
 
-        // 4. Nicht auf einem anderen Gegner (sich selbst ausgenommen)
-        foreach (Transform g in gegner)
-        {
-            if (g == null || g == ausnahme)
-            {
-                continue;
-            }
-
-            if (Mathf.RoundToInt(g.position.x) == x &&
-                Mathf.RoundToInt(g.position.y) == y)
-            {
-                return false;
-            }
-        }
+        // Die Prüfung auf andere Gegner wurde hier absichtlich komplett entfernt
+        // Dadurch blockieren sich die Gegner beim Spawnen nicht mehr gegenseitig
 
         return true;
     }
 
-    // Entfernt zerstoerte (null) Gegner aus der Liste.
     private void EntferneZerstoerte()
     {
         gegner.RemoveAll(g => g == null);
     }
 
-    // Entfernt alle gespawnten Gegner (z.B. beim Neustart).
     public void RaeumeAuf()
     {
         foreach (Transform g in gegner)
@@ -219,5 +179,15 @@ public class EnemySpawner : MonoBehaviour
             }
         }
         gegner.Clear();
+
+        ResetSpawnerState();
+    }
+
+    private void ResetSpawnerState()
+    {
+        ueberlebensZeit = 0f;
+        aktuellesMaxGegner = startMaxGegner;
+        aktuellesIntervall = startSpawnIntervall;
+        naechsterSpawnZeitpunkt = Time.time + startVerzoegerung;
     }
 }
