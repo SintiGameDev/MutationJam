@@ -44,7 +44,7 @@ GameObject:
   - component: {fileID: 5964431535157182190}
   m_Layer: 0
   m_Name: Tower Yellow
-  m_TagString: Untagged
+  m_TagString: Obstacle
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -133,8 +133,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   range: 20
-  fireRate: 1
+  schuessProBurst: 3
+  taktImBurst: 0.1
+  pauseZwischenBursts: 1.5
   schaden: 100
+  schussSound: {fileID: 0}
+  schussLautstaerke: 1
   enemyTag: Enemy
   firePoint: {fileID: 6195217544564902103}
   firePoints: []
