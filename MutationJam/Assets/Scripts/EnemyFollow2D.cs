@@ -5,7 +5,9 @@ using UnityEngine;
 public class EnemyFollow2D : MonoBehaviour
 {
     [Header("Bewegungseinstellungen")]
-    public float speed = 3f;
+    public float minSpeed = 2f;
+    public float maxSpeed = 4f;
+    private float currentSpeed;
 
     [Header("Kampf")]
     [Tooltip("Schaden, den der Gegner pro Anrempeln an ein Segment ODER den (allein stehenden) Kopf macht.")]
@@ -17,8 +19,8 @@ public class EnemyFollow2D : MonoBehaviour
     public float stunDauer = 0.4f;
 
     [Header("Ausrichtung")]
-    [Tooltip("Wohin das Sprite im Ruhezustand zeigt (wie bei Projektilen)")]
-    public float blickrichtungOffset = -90f;
+    [Tooltip("Wohin das Sprite im Ruhezustand zeigt. Bei rechtsgerichtetem Sprite meist 0 oder -180.")]
+    public float blickrichtungOffset = 0f;
 
     [Header("Visuelles Feedback")]
     public float flashDauer = 0.1f;
@@ -43,14 +45,23 @@ public class EnemyFollow2D : MonoBehaviour
 
     void Start()
     {
-        // Holt sich den SpriteRenderer (entweder auf diesem Objekt oder einem Kind Objekt)
-        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        // Zufaellige Geschwindigkeit fuer diesen spezifischen Gegner festlegen
+        currentSpeed = Random.Range(minSpeed, maxSpeed);
 
+        // SpriteRenderer und Materialien initialisieren
+        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         if (spriteRenderer != null)
         {
             originalMaterial = spriteRenderer.material;
-            // Dieser Shader macht das Sprite komplett weiss
             flashMaterial = new Material(Shader.Find("GUI/Text Shader"));
+        }
+
+        // Initiale Ausrichtung erzwingen, damit der Gegner direkt beim Spawn korrekt gedreht ist
+        Transform ziel = FindeZiel();
+        if (ziel != null)
+        {
+            Vector2 richtung = (Vector2)ziel.position - (Vector2)transform.position;
+            AusrichtenNach(richtung);
         }
     }
 
@@ -97,7 +108,6 @@ public class EnemyFollow2D : MonoBehaviour
         }
     }
 
-    // Oeffentliche Methode, die beim Treffer aufgerufen wird
     public void AufleuchtenLassen()
     {
         if (spriteRenderer != null && gameObject.activeInHierarchy)
@@ -148,7 +158,7 @@ public class EnemyFollow2D : MonoBehaviour
                 ? Random.insideUnitCircle.normalized
                 : richtung.normalized;
 
-            AusrichtenNach(-rueckstossRichtung); // Zum Ziel schauen waehrend des Rueckstosses
+            AusrichtenNach(-rueckstossRichtung);
         }
         else
         {
@@ -164,9 +174,9 @@ public class EnemyFollow2D : MonoBehaviour
         Transform ziel = FindeZiel();
         if (ziel != null)
         {
-            // Bewegen
+            // Bewegen mit der individuell gewuerfelten Geschwindigkeit
             transform.position = Vector2.MoveTowards(
-                transform.position, ziel.position, speed * Time.deltaTime);
+                transform.position, ziel.position, currentSpeed * Time.deltaTime);
 
             // Ausrichten
             Vector2 richtung = (Vector2)ziel.position - (Vector2)transform.position;
