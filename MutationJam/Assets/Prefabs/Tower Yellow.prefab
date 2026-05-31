@@ -133,8 +133,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   range: 20
-  fireRate: 1
+  schuessProBurst: 5
+  taktImBurst: 0.2
+  pauseZwischenBursts: 0.5
   schaden: 100
+  schussSound: {fileID: 0}
+  schussLautstaerke: 1
   enemyTag: Enemy
   firePoint: {fileID: 6195217544564902103}
   firePoints: []

@@ -16,5 +16,16 @@ MonoBehaviour:
     type: 3}
   reichweite: 20
   schussrate: 1
+  schaden: 10
+  schuessProBurst: 3
+  taktImBurst: 0.1
+  pauseZwischenBursts: 1.5
   projektilPrefab: {fileID: 5451908957895355184, guid: 4d5cdb69596782b4bbb0372aec6463ce,
     type: 3}
+  schussSound: {fileID: 8300000, guid: a9d7dabb4f8df89458544d3c6e429371, type: 3}
+  schussLautstaerke: 1
+  skalierungsModus: 0
+  skalierungsFaktor: 0.5
+  reichweiteSkaliert: 0
+  schussrateSkaliert: 0
+  schadenSkaliert: 1
