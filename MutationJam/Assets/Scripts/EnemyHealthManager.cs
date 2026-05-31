@@ -27,6 +27,12 @@ public class EnemyHealthManager : MonoBehaviour
     {
         if (istTot || schaden <= 0f) return;
 
+        EnemyFollow2D followScript = GetComponent<EnemyFollow2D>();
+        if (followScript != null)
+        {
+            followScript.AufleuchtenLassen();
+        }
+
         aktuellesLeben -= schaden;
         if (aktuellesLeben <= 0f)
         {
