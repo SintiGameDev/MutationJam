@@ -10,10 +10,14 @@ public class SnakeSegment : MonoBehaviour
     public float lebenProMutationsstufe = 2f;
 
     [Header("Schadens-Blitz")]
-    [Tooltip("Kuerzeste Aufleucht-Dauer (bei vollem Leben).")]
-    public float minBlitzDauer = 0.08f;
+    [Tooltip("Farbe des Aufblitzens. Fuer ein STAERKERES Leuchten im Farbwaehler den " +
+             "HDR-Intensitaetsregler ueber 1 ziehen (wirkt mit Bloom/Post-Processing).")]
+    [ColorUsage(true, true)]
+    public Color blitzFarbe = Color.white;
+    [Tooltip("Kuerzeste Aufleucht-Dauer (bei vollem Leben). Klein = schneller/knackiger.")]
+    public float minBlitzDauer = 0.04f;
     [Tooltip("Laengste Aufleucht-Dauer (bei wenig Leben). Wird auf 0,5 s gedeckelt.")]
-    public float maxBlitzDauer = 0.5f;
+    public float maxBlitzDauer = 0.18f;
 
     public Nahrungstyp Typ { get; private set; }
     public Tower AktuellerTurm { get; private set; }
@@ -146,16 +150,16 @@ public class SnakeSegment : MonoBehaviour
         blitzCoroutine = null;
     }
 
-    // Faerbt beide Renderer (falls vorhanden) weiss bzw. zurueck auf Grundfarbe.
-    private void SetzeFarbe(bool weiss)
+    // Faerbt beide Renderer (falls vorhanden) auf die Blitzfarbe bzw. zurueck auf Grundfarbe.
+    private void SetzeFarbe(bool blitz)
     {
         if (spriteRenderer != null)
         {
-            spriteRenderer.color = weiss ? Color.white : grundFarbeSprite;
+            spriteRenderer.color = blitz ? blitzFarbe : grundFarbeSprite;
         }
         if (meshRenderer != null && meshRenderer.material != null)
         {
-            meshRenderer.material.color = weiss ? Color.white : grundFarbeMesh;
+            meshRenderer.material.color = blitz ? blitzFarbe : grundFarbeMesh;
         }
     }
 

@@ -14,10 +14,14 @@ public class Snake : MonoBehaviour
     [Header("Kopf-Gesundheit")]
     [Tooltip("Leben des Kopfes. Der Kopf kann ERST sterben, wenn keine anderen Segmente mehr existieren.")]
     public float kopfMaxHealth = 5f;
-    [Tooltip("Kuerzeste Aufleucht-Dauer des Kopfes (bei vollem Leben).")]
-    public float kopfMinBlitzDauer = 0.08f;
+    [Tooltip("Farbe des Kopf-Aufblitzens. Fuer ein STAERKERES Leuchten den HDR-Intensitaetsregler " +
+             "im Farbwaehler ueber 1 ziehen (wirkt mit Bloom/Post-Processing).")]
+    [ColorUsage(true, true)]
+    public Color kopfBlitzFarbe = Color.white;
+    [Tooltip("Kuerzeste Aufleucht-Dauer des Kopfes (bei vollem Leben). Klein = schneller.")]
+    public float kopfMinBlitzDauer = 0.04f;
     [Tooltip("Laengste Aufleucht-Dauer des Kopfes (bei wenig Leben). Gedeckelt auf 0,5 s.")]
-    public float kopfMaxBlitzDauer = 0.5f;
+    public float kopfMaxBlitzDauer = 0.18f;
 
     [Header("Tower-Einstellungen")]
     [Tooltip("Wird an Segmente ohne eigene TurmKonfiguration uebergeben (z.B. Startsegmente)")]
@@ -42,6 +46,10 @@ public class Snake : MonoBehaviour
     public float squashAmount = 1.25f;
     public float RaupenFaktor = 0.05f;
 
+    // Wird gefeuert, wenn die Schlange stirbt (Kopf, Wand oder Selbstkollision).
+    // Die UI haengt sich hier dran, um den Death-Screen zu zeigen.
+    public event System.Action OnGestorben;
+
     private readonly List<Transform> segments = new List<Transform>();
     private readonly List<Vector3> logikPositionen = new List<Vector3>();
     private readonly List<Vector3> vorigeLogikPos = new List<Vector3>();
@@ -59,13 +67,13 @@ public class Snake : MonoBehaviour
 
     public List<Transform> Segments => segments;
 
-    // True, wenn nur noch der Kopf existiert (keine Koerper-Segmente).
     public bool NurKopfUebrig => segments.Count <= 1;
     public float KopfHealth => kopfHealth;
 
     // --- Kopf-Gesundheit (Laufzeit) ---
     private float kopfHealth;
     private bool kopfStirbt = false;
+    private bool istTot = false;
     private SpriteRenderer kopfSprite;
     private MeshRenderer kopfMesh;
     private Color kopfGrundFarbeSprite = Color.white;
@@ -82,7 +90,6 @@ public class Snake : MonoBehaviour
         ResetState();
     }
 
-    // Sprite- und/oder Mesh-Renderer des Kopfes ermitteln und Grundfarbe merken.
     private void ErmittleKopfRenderer()
     {
         kopfSprite = GetComponent<SpriteRenderer>();
@@ -108,6 +115,8 @@ public class Snake : MonoBehaviour
 
     private void Update()
     {
+        if (istTot) return;
+
         if (direction.x != 0f)
         {
             if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
@@ -134,6 +143,8 @@ public class Snake : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (istTot) return;   // tote Schlange bewegt sich nicht mehr
+
         if (Time.fixedTime < nextUpdate)
         {
             return;
@@ -371,8 +382,6 @@ public class Snake : MonoBehaviour
 
     // === KOPF-GESUNDHEIT ===
 
-    // Wird vom Gegner aufgerufen, wenn er den Kopf angreift.
-    // Wirkt NUR, wenn keine Koerper-Segmente mehr existieren.
     public void KopfNimmtSchaden(float schaden)
     {
         if (!NurKopfUebrig) return;   // Kopf geschuetzt, solange Koerper existiert
@@ -389,15 +398,19 @@ public class Snake : MonoBehaviour
 
         if (kopfHealth <= 0f)
         {
-            KopfStirbt();
+            kopfStirbt = true;
+            Sterben();
         }
     }
 
-    private void KopfStirbt()
+    // Zentraler Todeseinstieg: feuert nur das Event. Die UI zeigt daraufhin
+    // den Death-Screen und pausiert das Spiel. Kein ResetState hier – der
+    // Neustart laeuft ueber den Button (Szene neu laden).
+    private void Sterben()
     {
-        kopfStirbt = true;
-        // Tod des Kopfes = Spiel zuruecksetzen (wie bei Wand-/Selbstkollision)
-        ResetState();
+        if (istTot) return;
+        istTot = true;
+        OnGestorben?.Invoke();
     }
 
     private System.Collections.IEnumerator KopfBlitz()
@@ -409,15 +422,15 @@ public class Snake : MonoBehaviour
         kopfBlitzCoroutine = null;
     }
 
-    private void SetzeKopfFarbe(bool weiss)
+    private void SetzeKopfFarbe(bool blitz)
     {
         if (kopfSprite != null)
         {
-            kopfSprite.color = weiss ? Color.white : kopfGrundFarbeSprite;
+            kopfSprite.color = blitz ? kopfBlitzFarbe : kopfGrundFarbeSprite;
         }
         if (kopfMesh != null && kopfMesh.material != null)
         {
-            kopfMesh.material.color = weiss ? Color.white : kopfGrundFarbeMesh;
+            kopfMesh.material.color = blitz ? kopfBlitzFarbe : kopfGrundFarbeMesh;
         }
     }
 
@@ -438,9 +451,10 @@ public class Snake : MonoBehaviour
         transform.localScale = basisScale;
         kopfVorigePos = Vector3.zero;
 
-        // Kopf-Gesundheit zuruecksetzen
+        // Zustand zuruecksetzen
         kopfHealth = kopfMaxHealth;
         kopfStirbt = false;
+        istTot = false;
         if (kopfBlitzCoroutine != null)
         {
             StopCoroutine(kopfBlitzCoroutine);
@@ -530,7 +544,7 @@ public class Snake : MonoBehaviour
                 }
             }
 
-            ResetState();
+            Sterben();
         }
         else if (other.gameObject.CompareTag("Wall"))
         {
@@ -540,7 +554,7 @@ public class Snake : MonoBehaviour
             }
             else
             {
-                ResetState();
+                Sterben();
             }
         }
     }
