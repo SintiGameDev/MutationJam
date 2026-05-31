@@ -174,11 +174,14 @@ public class EnemyFollow2D : MonoBehaviour
         Transform ziel = FindeZiel();
         if (ziel != null)
         {
-            // Bewegen mit der individuell gewuerfelten Geschwindigkeit
-            transform.position = Vector2.MoveTowards(
-                transform.position, ziel.position, currentSpeed * Time.deltaTime);
+            // Wir nehmen die X und Y Koordinaten des Ziels, aber behalten unsere eigene Z-Koordinate bei!
+            Vector3 zielPositionMitZ = new Vector3(ziel.position.x, ziel.position.y, transform.position.z);
 
-            // Ausrichten
+            // Jetzt nutzen wir Vector3.MoveTowards anstelle von Vector2
+            transform.position = Vector3.MoveTowards(
+                transform.position, zielPositionMitZ, currentSpeed * Time.deltaTime);
+
+            // Ausrichten (Hier reicht Vector2 weiterhin, da es nur um den Winkel geht)
             Vector2 richtung = (Vector2)ziel.position - (Vector2)transform.position;
             AusrichtenNach(richtung);
         }
