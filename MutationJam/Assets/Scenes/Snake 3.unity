@@ -2375,6 +2375,11 @@ PrefabInstance:
       propertyPath: m_Name
       value: StufenAnzeige
       objectReference: {fileID: 0}
+    - target: {fileID: 9121615263725367611, guid: 0e949883f8b1acc4e926d59de4af0c1a,
+        type: 3}
+      propertyPath: m_IsActive
+      value: 0
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
