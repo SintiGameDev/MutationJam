@@ -46,5 +46,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   gridArea: {fileID: 0}
   gegnerPrefab: {fileID: 0}
-  anzahl: 3
-  mindestAbstandZumSpieler: 5
+  maxGegner: 5
+  startVerzoegerung: 2
+  spawnIntervall: 3
+  mindestAbstandZumSpieler: 0.2
