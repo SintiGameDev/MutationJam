@@ -14,10 +14,14 @@ public class Snake : MonoBehaviour
     [Header("Kopf-Gesundheit")]
     [Tooltip("Leben des Kopfes. Der Kopf kann ERST sterben, wenn keine anderen Segmente mehr existieren.")]
     public float kopfMaxHealth = 5f;
-    [Tooltip("Kuerzeste Aufleucht-Dauer des Kopfes (bei vollem Leben).")]
-    public float kopfMinBlitzDauer = 0.08f;
+    [Tooltip("Farbe des Kopf-Aufblitzens. Fuer ein STAERKERES Leuchten den HDR-Intensitaetsregler " +
+             "im Farbwaehler ueber 1 ziehen (wirkt mit Bloom/Post-Processing).")]
+    [ColorUsage(true, true)]
+    public Color kopfBlitzFarbe = Color.white;
+    [Tooltip("Kuerzeste Aufleucht-Dauer des Kopfes (bei vollem Leben). Klein = schneller.")]
+    public float kopfMinBlitzDauer = 0.04f;
     [Tooltip("Laengste Aufleucht-Dauer des Kopfes (bei wenig Leben). Gedeckelt auf 0,5 s.")]
-    public float kopfMaxBlitzDauer = 0.5f;
+    public float kopfMaxBlitzDauer = 0.18f;
 
     [Header("Tower-Einstellungen")]
     [Tooltip("Wird an Segmente ohne eigene TurmKonfiguration uebergeben (z.B. Startsegmente)")]
@@ -409,15 +413,15 @@ public class Snake : MonoBehaviour
         kopfBlitzCoroutine = null;
     }
 
-    private void SetzeKopfFarbe(bool weiss)
+    private void SetzeKopfFarbe(bool blitz)
     {
         if (kopfSprite != null)
         {
-            kopfSprite.color = weiss ? Color.white : kopfGrundFarbeSprite;
+            kopfSprite.color = blitz ? kopfBlitzFarbe : kopfGrundFarbeSprite;
         }
         if (kopfMesh != null && kopfMesh.material != null)
         {
-            kopfMesh.material.color = weiss ? Color.white : kopfGrundFarbeMesh;
+            kopfMesh.material.color = blitz ? kopfBlitzFarbe : kopfGrundFarbeMesh;
         }
     }
 
