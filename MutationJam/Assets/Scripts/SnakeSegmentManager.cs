@@ -20,14 +20,13 @@ public class SnakeSegmentManager : MonoBehaviour
 
     private bool PruefeEinzelneKombo()
     {
-        // Nutzt snake.Segments (englisch) – so wie es in Snake.cs definiert ist
         List<Transform> segmente = snake.Segments;
 
         if (segmente.Count < 4) return false;
 
-        Nahrungstyp runTyp = null;
-        int runStart = -1;
-        int runLaenge = 0;
+        Nahrungstyp runTyp  = null;
+        int runStart        = -1;
+        int runLaenge       = 0;
 
         for (int i = 1; i < segmente.Count; i++)
         {
@@ -41,40 +40,31 @@ public class SnakeSegmentManager : MonoBehaviour
             {
                 if (runLaenge >= 3)
                 {
-                    EntferneSegmente(segmente, runStart, runLaenge);
-                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {segmente.Count}");
+                    EntferneSegmente(runStart, runLaenge);
+                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segments.Count}");
                     return true;
                 }
 
-                runTyp = typ;
-                runStart = i;
+                runTyp    = typ;
+                runStart  = i;
                 runLaenge = 1;
             }
         }
 
         if (runLaenge >= 3)
         {
-            EntferneSegmente(segmente, runStart, runLaenge);
-            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {segmente.Count}");
+            EntferneSegmente(runStart, runLaenge);
+            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segments.Count}");
             return true;
         }
 
         return false;
     }
 
-    // Entfernt Segmente direkt aus der Liste und zerstoert die GameObjects.
-    // Kein EntferneSegmente() auf Snake noetig.
-    private void EntferneSegmente(List<Transform> segmente, int startIndex, int anzahl)
+    private void EntferneSegmente(int startIndex, int anzahl)
     {
-        for (int i = startIndex; i < startIndex + anzahl; i++)
-        {
-            if (segmente[i] != null)
-            {
-                LeanTween.cancel(segmente[i].gameObject);
-                Destroy(segmente[i].gameObject);
-            }
-        }
-
-        segmente.RemoveRange(startIndex, anzahl);
+        // Snake kuemmert sich um logikPositionen/vorigeLogikPos-Synchronisierung
+        // und spielt den PopOut-Effekt ab
+        snake.EntferneSegmente(startIndex, anzahl);
     }
 }

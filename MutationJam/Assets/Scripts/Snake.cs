@@ -22,8 +22,17 @@ public class Snake : MonoBehaviour
     public float RaupenFaktor = 0.05f;
 
     private readonly List<Transform> segments = new List<Transform>();
+    // Spiegelt segments 1:1 – speichert die grid-exakten Logik-Positionen.
+    // Tweens nutzen diese als Ziel, die Transform.position ist nur Optik.
+    private readonly List<Vector3> logikPositionen = new List<Vector3>();
+    // Vorherige Logik-Positionen – fuer Richtungsberechnung pro Segment
+    private readonly List<Vector3> vorigeLogikPos = new List<Vector3>();
     private Vector2Int input;
     private float nextUpdate;
+    [Tooltip("Basis-Scale des Kopfes (wird fuer Squash-Rueckgabe genutzt).")]
+    public Vector3 basisScale = Vector3.one;
+    [Tooltip("Scale der Koerper-Segmente (unabhaengig vom Kopf).")]
+    public Vector3 segmentScale = Vector3.one;
 
     public List<Transform> Segments => segments;
 
@@ -72,56 +81,100 @@ public class Snake : MonoBehaviour
 
         float stepDuration = 1f / (speed * speedMultiplier);
 
-        // 1. Segmente bewegen (mit strikter Grid-Rundung zur Drift-Vermeidung)
-        for (int i = segments.Count - 1; i > 0; i--)
+        // --- Listen synchron halten ---
+        while (logikPositionen.Count < segments.Count)
         {
-            Transform currentSeg = segments[i];
+            Vector3 pos = segments[logikPositionen.Count].position;
+            logikPositionen.Add(pos);
+            vorigeLogikPos.Add(pos);
+        }
+        while (logikPositionen.Count > segments.Count)
+        {
+            logikPositionen.RemoveAt(logikPositionen.Count - 1);
+            vorigeLogikPos.RemoveAt(vorigeLogikPos.Count - 1);
+        }
+        // vorigeLogikPos ebenfalls auf segments-Laenge bringen
+        while (vorigeLogikPos.Count < logikPositionen.Count)
+            vorigeLogikPos.Add(logikPositionen[vorigeLogikPos.Count]);
+        while (vorigeLogikPos.Count > logikPositionen.Count)
+            vorigeLogikPos.RemoveAt(vorigeLogikPos.Count - 1);
 
-            // FIX 1: Gnadenloses Runden der Zielkoordinaten, exakt wie in deinem Original.
-            // Ohne das Runden kopiert der Schwanz die Float-Ungenauigkeiten der Tween-Animation.
-            Vector3 targetPos = new Vector3(
-                Mathf.RoundToInt(segments[i - 1].position.x),
-                Mathf.RoundToInt(segments[i - 1].position.y),
-                0f
-            );
+        // --- Vorige Positionen sichern (vor dem Vorschieben) ---
+        for (int i = 0; i < logikPositionen.Count; i++)
+        {
+            vorigeLogikPos[i] = logikPositionen[i];
+        }
 
-            LeanTween.cancel(currentSeg.gameObject);
+        // --- Logik-Positionen grid-exakt vorschieben ---
+        for (int i = logikPositionen.Count - 1; i > 0; i--)
+        {
+            logikPositionen[i] = logikPositionen[i - 1];
+        }
+        int x = Mathf.RoundToInt(logikPositionen[0].x) + direction.x;
+        int y = Mathf.RoundToInt(logikPositionen[0].y) + direction.y;
+        logikPositionen[0] = new Vector3(x, y, 0f);
 
-            LeanTween.move(currentSeg.gameObject, targetPos, stepDuration)
+        // Kopf-Transform sofort setzen (Kollisionserkennung)
+        transform.position = logikPositionen[0];
+
+        // Kopf in Bewegungsrichtung drehen
+        Vector3 kopfDelta = new Vector3(direction.x, direction.y, 0f);
+        transform.rotation = Quaternion.Euler(0f, 0f, RichtungsWinkel(kopfDelta));
+
+        // --- Koerper-Segmente: Tween + richtungsabhaengiger Squash ---
+        for (int i = 1; i < segments.Count; i++)
+        {
+            if (segments[i] == null) continue;
+
+            GameObject segGO = segments[i].gameObject;
+            Vector3 ziel = logikPositionen[i];
+
+            // Bewegungsrichtung dieses Segments (von voriger zu neuer Logik-Position)
+            Vector3 delta = logikPositionen[i] - vorigeLogikPos[i];
+            bool bewegtSichHorizontal = Mathf.Abs(delta.x) > Mathf.Abs(delta.y);
+
+            // Squash-Achsen abhaengig von Bewegungsrichtung:
+            // horizontal bewegt → in X strecken, in Y quetschen (und umgekehrt)
+            // Squash relativ zur basisScale – damit skalierte Segmente korrekt zurueckkehren
+            float sx = bewegtSichHorizontal ? squashAmount : (2f - squashAmount);
+            float sy = bewegtSichHorizontal ? (2f - squashAmount) : squashAmount;
+            float squashDauer = stepDuration * 0.4f;
+
+            LeanTween.cancel(segGO);
+            LeanTween.move(segGO, ziel, stepDuration * 0.85f)
                 .setEase(segmentEaseType)
                 .setUseEstimatedTime(true);
 
-            float delay = i * RaupenFaktor;
+            // Segment in seine Bewegungsrichtung drehen
+            if (delta.sqrMagnitude > 0.0001f)
+                segments[i].rotation = Quaternion.Euler(0f, 0f, RichtungsWinkel(delta));
 
-            LeanTween.scale(currentSeg.gameObject, new Vector3(squashAmount, 2f - squashAmount, 1f), stepDuration * 0.5f)
+            GameObject cap = segGO;
+            Vector3 squashZiel = new Vector3(segmentScale.x * sx, segmentScale.y * sy, segmentScale.z);
+            LeanTween.scale(cap, squashZiel, squashDauer)
                 .setEase(LeanTweenType.easeOutQuad)
-                .setDelay(delay)
                 .setUseEstimatedTime(true)
-                .setOnComplete(() => {
-                    if (currentSeg != null)
-                    {
-                        LeanTween.scale(currentSeg.gameObject, Vector3.one, stepDuration * 0.5f)
+                .setOnComplete(() =>
+                {
+                    if (cap != null)
+                        LeanTween.scale(cap, segmentScale, squashDauer)
                             .setEase(LeanTweenType.easeInOutQuad)
                             .setUseEstimatedTime(true);
-                    }
                 });
         }
 
-        // 2. Kopf bewegen
-        LeanTween.cancel(gameObject);
+        // --- Kopf-Squash (Richtung aus direction) ---
+        bool kopfHorizontal = direction.x != 0;
+        float kopfScaleX = kopfHorizontal ? squashAmount : (2f - squashAmount);
+        float kopfScaleY = kopfHorizontal ? (2f - squashAmount) : squashAmount;
 
-        int x = Mathf.RoundToInt(transform.position.x) + direction.x;
-        int y = Mathf.RoundToInt(transform.position.y) + direction.y;
-        Vector3 headTargetPos = new Vector2(x, y);
-
-        LeanTween.move(gameObject, headTargetPos, stepDuration)
-            .setEase(moveEaseType)
-            .setUseEstimatedTime(true);
-
-        LeanTween.scale(gameObject, new Vector3(squashAmount, 2f - squashAmount, 1f), stepDuration * 0.3f)
+        Vector3 kopfSquashZiel = new Vector3(basisScale.x * kopfScaleX, basisScale.y * kopfScaleY, basisScale.z);
+        LeanTween.scale(gameObject, kopfSquashZiel, stepDuration * 0.25f)
             .setUseEstimatedTime(true)
-            .setOnComplete(() => {
-                LeanTween.scale(gameObject, Vector3.one, stepDuration * 0.7f).setUseEstimatedTime(true);
+            .setOnComplete(() =>
+            {
+                LeanTween.scale(gameObject, basisScale, stepDuration * 0.75f)
+                    .setUseEstimatedTime(true);
             });
 
         nextUpdate = Time.fixedTime + stepDuration;
@@ -131,15 +184,20 @@ public class Snake : MonoBehaviour
     {
         Transform segment = Instantiate(segmentPrefab);
 
-        // Neues Segment startet am Schwanzende
-        segment.position = new Vector3(
-            Mathf.RoundToInt(segments[segments.Count - 1].position.x),
-            Mathf.RoundToInt(segments[segments.Count - 1].position.y),
-            0f
-        );
-        segment.localScale = Vector3.zero;
+        // Logik-Position = aktuelle Schwanzposition (grid-exakt)
+        Vector3 schwanzPos = logikPositionen.Count > 0
+            ? logikPositionen[logikPositionen.Count - 1]
+            : new Vector3(
+                Mathf.RoundToInt(segments[segments.Count - 1].position.x),
+                Mathf.RoundToInt(segments[segments.Count - 1].position.y),
+                0f);
 
-        LeanTween.scale(segment.gameObject, Vector3.one, 0.2f)
+        segment.position = schwanzPos;
+        logikPositionen.Add(schwanzPos);
+
+        // Pop-In: von 0 auf basisScale mit leichtem Overshoot
+        segment.localScale = Vector3.zero;
+        LeanTween.scale(segment.gameObject, segmentScale, 0.25f)
             .setEase(LeanTweenType.easeOutBack)
             .setUseEstimatedTime(true);
 
@@ -154,7 +212,56 @@ public class Snake : MonoBehaviour
     // Wird vom SnakeSegment-Event aufgerufen wenn ein Segment stirbt
     public void SegmentGestorben(SnakeSegment segment)
     {
-        segments.Remove(segment.transform);
+        int idx = segments.IndexOf(segment.transform);
+        if (idx >= 0)
+        {
+            segments.RemoveAt(idx);
+            if (idx < logikPositionen.Count)
+                logikPositionen.RemoveAt(idx);
+            if (idx < vorigeLogikPos.Count)
+                vorigeLogikPos.RemoveAt(idx);
+        }
+    }
+
+    public void EntferneSegmente(int startIndex, int anzahl)
+    {
+        for (int i = startIndex; i < startIndex + anzahl; i++)
+        {
+            if (segments[i] != null)
+            {
+                LeanTween.cancel(segments[i].gameObject);
+                StartCoroutine(PopOutUndZerstoere(segments[i].gameObject));
+            }
+        }
+
+        segments.RemoveRange(startIndex, anzahl);
+
+        // Hilfslisten synchron halten
+        int listenAnzahl = Mathf.Min(anzahl, logikPositionen.Count - startIndex);
+        if (listenAnzahl > 0)
+        {
+            logikPositionen.RemoveRange(startIndex, listenAnzahl);
+            if (startIndex < vorigeLogikPos.Count)
+                vorigeLogikPos.RemoveRange(startIndex,
+                    Mathf.Min(listenAnzahl, vorigeLogikPos.Count - startIndex));
+        }
+    }
+
+    private System.Collections.IEnumerator PopOutUndZerstoere(GameObject go)
+    {
+        float dauer = 0.15f;
+        float elapsed = 0f;
+        Vector3 start = go != null ? go.transform.localScale : Vector3.one;
+
+        while (elapsed < dauer)
+        {
+            elapsed += Time.deltaTime;
+            if (go == null) yield break;
+            go.transform.localScale = Vector3.Lerp(start, Vector3.zero, elapsed / dauer);
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
     }
 
     public void ResetState()
@@ -163,7 +270,7 @@ public class Snake : MonoBehaviour
 
         direction = Vector2Int.right;
         transform.position = Vector3.zero;
-        transform.localScale = Vector3.one;
+        transform.localScale = basisScale;
 
         for (int i = 1; i < segments.Count; i++)
         {
@@ -174,7 +281,12 @@ public class Snake : MonoBehaviour
         }
 
         segments.Clear();
+        logikPositionen.Clear();
+        vorigeLogikPos.Clear();
+
         segments.Add(transform);
+        logikPositionen.Add(Vector3.zero);
+        vorigeLogikPos.Add(Vector3.zero);
 
         for (int i = 0; i < initialSize - 1; i++)
         {
@@ -218,14 +330,29 @@ public class Snake : MonoBehaviour
         }
         else if (other.gameObject.CompareTag("Obstacle"))
         {
-            // FIX 2: Verhindert Selbstzerstörung durch dicke Colliders beim Tweening
             int segmentIndex = segments.IndexOf(other.transform);
 
-            // Wenn das getroffene Objekt Teil der Schlange ist UND es sich um den direkten Hals (Index 1 oder 2) handelt:
-            // Ignoriere die Kollision. Der Kopf streift den Hals nur visuell durch den Squash-Effekt.
-            if (segmentIndex > 0 && segmentIndex <= 2)
+            // Eigenes Segment getroffen:
+            // Index 1+2 ignorieren (Hals – streift den Kopf durch Squash-Optik).
+            // Alle anderen eigenen Segmente ebenfalls ignorieren solange die Schlange
+            // noch im Aufbau ist (z.B. Startsegmente liegen alle auf Position 0).
+            if (segmentIndex > 0)
             {
-                return;
+                // Nur echte Selbstkollision zaehlt: Segment muss sich an einer
+                // anderen Logik-Position befinden als der Kopf.
+                if (segmentIndex <= 2) return;
+
+                Vector3 kopfPos = logikPositionen.Count > 0 ? logikPositionen[0] : transform.position;
+                Vector3 segPos = segmentIndex < logikPositionen.Count
+                    ? logikPositionen[segmentIndex]
+                    : other.transform.position;
+
+                // Nur resetten wenn das Segment wirklich auf derselben Grid-Zelle sitzt
+                if (Mathf.RoundToInt(kopfPos.x) != Mathf.RoundToInt(segPos.x) ||
+                    Mathf.RoundToInt(kopfPos.y) != Mathf.RoundToInt(segPos.y))
+                {
+                    return;
+                }
             }
 
             ResetState();
@@ -241,6 +368,13 @@ public class Snake : MonoBehaviour
                 ResetState();
             }
         }
+    }
+
+    // Berechnet Z-Winkel aus Bewegungsvektor (Sprite zeigt standardmaessig nach rechts = 0 Grad)
+    private static float RichtungsWinkel(Vector3 delta)
+    {
+        if (delta.sqrMagnitude < 0.0001f) return 0f;
+        return Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
     }
 
     private void Traverse(Transform wall)
