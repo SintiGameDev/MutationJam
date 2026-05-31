@@ -3,11 +3,11 @@ using UnityEngine;
 
 // Spawnt Gegner fortlaufend bis zu einer Maximalzahl.
 // Platzierung beachtet (wie beim FoodSpawner):
-//  - innerhalb der gridArea-Bounds
-//  - nicht auf der Schlange (kein Segment)
-//  - nicht zu nah am Kopf (mindestAbstandZumSpieler)
-//  - nicht auf einem Food
-//  - nicht auf einem anderen Gegner
+//  innerhalb der gridArea Bounds
+//  nicht auf der Schlange (kein Segment)
+//  nicht zu nah am Kopf (mindestAbstandZumSpieler)
+//  nicht auf einem Food
+//  nicht auf einem anderen Gegner
 //
 // Hinweis: Gegner brauchen den Tag "Enemy" und einen EnemyHealthManager,
 // damit Projektile/Schlangenkopf sie toeten koennen.
@@ -17,10 +17,10 @@ public class EnemySpawner : MonoBehaviour
     [Tooltip("Derselbe Bereich wie bei den Foods.")]
     public Collider2D gridArea;
 
-    [Tooltip("Das Gegner-Prefab, das gespawnt wird.")]
+    [Tooltip("Das Gegner Prefab, das gespawnt wird.")]
     public Transform gegnerPrefab;
 
-    [Header("Spawn-Verhalten")]
+    [Header("Spawn Verhalten")]
     [Min(0)]
     [Tooltip("Maximale Anzahl gleichzeitig lebender Gegner.")]
     public int maxGegner = 5;
@@ -30,17 +30,17 @@ public class EnemySpawner : MonoBehaviour
     public float startVerzoegerung = 2f;
 
     [Min(0.05f)]
-    [Tooltip("Sekunden zwischen zwei Spawn-Versuchen (kleiner = schneller).")]
+    [Tooltip("Sekunden zwischen zwei Spawn Versuchen (kleiner = schneller).")]
     public float spawnIntervall = 3f;
 
     [Header("Platzierung")]
     [Min(0f)]
-    [Tooltip("Mindestabstand (in Grid-Feldern) zum Schlangenkopf.")]
+    [Tooltip("Mindestabstand (in Grid Feldern) zum Schlangenkopf.")]
     public float mindestAbstandZumSpieler = 5f;
 
     private Snake snake;
 
-    // Aktuell platzierte Gegner (kann zerstoerte/null-Eintraege enthalten)
+    // Aktuell platzierte Gegner (kann zerstoerte/null Eintraege enthalten)
     private readonly List<Transform> gegner = new List<Transform>();
 
     // Anzahl noch lebender Gegner
@@ -82,21 +82,23 @@ public class EnemySpawner : MonoBehaviour
 
         if (AnzahlGegner >= maxGegner)
         {
-            return; // Feld voll – nichts tun
+            return; // Feld voll nichts tun
         }
 
         List<Vector2Int> freieFelder = SammleGueltigeFelder(null);
 
         if (freieFelder.Count == 0)
         {
-            // Kein gueltiges Feld frei – beim naechsten Intervall erneut versuchen
+            // Kein gueltiges Feld frei beim naechsten Intervall erneut versuchen
             return;
         }
 
         Vector2Int feld = freieFelder[Random.Range(0, freieFelder.Count)];
+
+        // HIER ANGEPASST: Z Koordinate auf -1f gesetzt
         Transform neuer = Instantiate(
             gegnerPrefab,
-            new Vector3(feld.x, feld.y, 0f),
+            new Vector3(feld.x, feld.y, -1f),
             Quaternion.identity);
 
         gegner.Add(neuer);
@@ -117,7 +119,9 @@ public class EnemySpawner : MonoBehaviour
         }
 
         Vector2Int feld = freieFelder[Random.Range(0, freieFelder.Count)];
-        g.position = new Vector2(feld.x, feld.y);
+
+        // HIER ANGEPASST: Vector3 genutzt, um Z auf -1f zu setzen
+        g.position = new Vector3(feld.x, feld.y, -1f);
     }
 
     // Sammelt alle Felder im Grid, die alle Bedingungen erfuellen.

@@ -1,5 +1,7 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+
 public class EnemyFollow2D : MonoBehaviour
 {
     [Header("Bewegungseinstellungen")]
@@ -14,18 +16,43 @@ public class EnemyFollow2D : MonoBehaviour
     public float rueckstossDauer = 0.15f;
     public float stunDauer = 0.4f;
 
+    [Header("Ausrichtung")]
+    [Tooltip("Wohin das Sprite im Ruhezustand zeigt (wie bei Projektilen)")]
+    public float blickrichtungOffset = -90f;
+
+    [Header("Visuelles Feedback")]
+    public float flashDauer = 0.1f;
+
     private enum Zustand { Frei, Rueckstoss, Stun }
     private Zustand zustand = Zustand.Frei;
 
     private float timer;
     private Vector2 rueckstossRichtung;
 
-    // Ueberlappte Koerper-Segmente
+    // Ueberlappte Koerper Segmente
     private readonly List<Transform> ueberlappendeSegmente = new List<Transform>();
 
-    // Ueberlappter Kopf (nur angreifbar, wenn die Schlange keine Segmente mehr hat)
+    // Ueberlappter Kopf
     private Transform ueberlappenderKopf;
     private Snake kopfSnake;
+
+    // Fuer das weisse Aufleuchten
+    private SpriteRenderer spriteRenderer;
+    private Material originalMaterial;
+    private Material flashMaterial;
+
+    void Start()
+    {
+        // Holt sich den SpriteRenderer (entweder auf diesem Objekt oder einem Kind Objekt)
+        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+
+        if (spriteRenderer != null)
+        {
+            originalMaterial = spriteRenderer.material;
+            // Dieser Shader macht das Sprite komplett weiss
+            flashMaterial = new Material(Shader.Find("GUI/Text Shader"));
+        }
+    }
 
     void Update()
     {
@@ -70,7 +97,22 @@ public class EnemyFollow2D : MonoBehaviour
         }
     }
 
-    // Macht Schaden am naechsten Ziel (Segment ODER Kopf) und loest Rueckstoss aus.
+    // Oeffentliche Methode, die beim Treffer aufgerufen wird
+    public void AufleuchtenLassen()
+    {
+        if (spriteRenderer != null && gameObject.activeInHierarchy)
+        {
+            StartCoroutine(FlashRoutine());
+        }
+    }
+
+    private IEnumerator FlashRoutine()
+    {
+        spriteRenderer.material = flashMaterial;
+        yield return new WaitForSeconds(flashDauer);
+        spriteRenderer.material = originalMaterial;
+    }
+
     private void StarteRueckstoss(bool kopfVerwundbar)
     {
         Transform ziel = NaechstesUeberlapptesSegment();
@@ -79,7 +121,6 @@ public class EnemyFollow2D : MonoBehaviour
             : Mathf.Infinity;
         bool zielIstKopf = false;
 
-        // Kopf als Ziel beruecksichtigen, falls verwundbar und naeher
         if (kopfVerwundbar && ueberlappenderKopf != null)
         {
             float kopfDist = Vector2.Distance(transform.position, ueberlappenderKopf.position);
@@ -106,6 +147,8 @@ public class EnemyFollow2D : MonoBehaviour
             rueckstossRichtung = (richtung.sqrMagnitude < 0.0001f)
                 ? Random.insideUnitCircle.normalized
                 : richtung.normalized;
+
+            AusrichtenNach(-rueckstossRichtung); // Zum Ziel schauen waehrend des Rueckstosses
         }
         else
         {
@@ -121,9 +164,21 @@ public class EnemyFollow2D : MonoBehaviour
         Transform ziel = FindeZiel();
         if (ziel != null)
         {
+            // Bewegen
             transform.position = Vector2.MoveTowards(
                 transform.position, ziel.position, speed * Time.deltaTime);
+
+            // Ausrichten
+            Vector2 richtung = (Vector2)ziel.position - (Vector2)transform.position;
+            AusrichtenNach(richtung);
         }
+    }
+
+    private void AusrichtenNach(Vector2 dir)
+    {
+        if (dir.sqrMagnitude < 0.0001f) return;
+        float winkel = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg + blickrichtungOffset;
+        transform.rotation = Quaternion.Euler(0f, 0f, winkel);
     }
 
     private Transform FindeZiel()
@@ -173,7 +228,6 @@ public class EnemyFollow2D : MonoBehaviour
 
     private void OnTriggerEnter2D(Collider2D other)
     {
-        // Koerper-Segment
         if (other.GetComponent<SnakeSegment>() != null)
         {
             if (!ueberlappendeSegmente.Contains(other.transform))
@@ -181,7 +235,6 @@ public class EnemyFollow2D : MonoBehaviour
             return;
         }
 
-        // Kopf (Snake-Komponente)
         Snake snake = other.GetComponent<Snake>();
         if (snake != null)
         {
