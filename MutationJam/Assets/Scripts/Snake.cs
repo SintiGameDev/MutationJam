@@ -27,17 +27,29 @@ public class Snake : MonoBehaviour
     private readonly List<Vector3> logikPositionen = new List<Vector3>();
     // Vorherige Logik-Positionen – fuer Richtungsberechnung pro Segment
     private readonly List<Vector3> vorigeLogikPos = new List<Vector3>();
+    // Vollstaendige Pfadhistorie des Kopfes – Segmente lesen ihre
+    // Position bei Index (segmentIndex * segmentAbstand) daraus
+    private readonly List<Vector3> pfadHistorie = new List<Vector3>();
     private Vector2Int input;
     private float nextUpdate;
+    // Vorige Kopf-Logikposition – fuer den visuellen Move-Tween
+    private Vector3 kopfVorigePos;
     [Tooltip("Basis-Scale des Kopfes (wird fuer Squash-Rueckgabe genutzt).")]
     public Vector3 basisScale = Vector3.one;
     [Tooltip("Scale der Koerper-Segmente (unabhaengig vom Kopf).")]
     public Vector3 segmentScale = Vector3.one;
+    [Tooltip("Abstand zwischen Segmenten in Grid-Einheiten. 1 = direkt aneinander, 2 = eine Luecke dazwischen.")]
+    [Range(0.5f, 4f)]
+    public float segmentAbstand = 1f;
 
     public List<Transform> Segments => segments;
 
     private void Start()
     {
+        // Kopf immer ueber allen Segmenten rendern
+        foreach (SpriteRenderer sr in GetComponentsInChildren<SpriteRenderer>())
+            sr.sortingOrder = 10;
+
         ResetState();
     }
 
@@ -105,19 +117,53 @@ public class Snake : MonoBehaviour
             vorigeLogikPos[i] = logikPositionen[i];
         }
 
-        // --- Logik-Positionen grid-exakt vorschieben ---
-        for (int i = logikPositionen.Count - 1; i > 0; i--)
-        {
-            logikPositionen[i] = logikPositionen[i - 1];
-        }
+        // --- Kopf eine Zelle vorschieben ---
         int x = Mathf.RoundToInt(logikPositionen[0].x) + direction.x;
         int y = Mathf.RoundToInt(logikPositionen[0].y) + direction.y;
         logikPositionen[0] = new Vector3(x, y, 0f);
 
-        // Kopf-Transform sofort setzen (Kollisionserkennung)
-        transform.position = logikPositionen[0];
+        // Kopf-Logikposition setzen (fuer Kollisionserkennung via Occupies/OnTrigger)
+        // transform.position bleibt NICHT sofort gesetzt – stattdessen tweenen wir
+        // den Root von der vorigen zur neuen Logikposition, genau wie die Segmente.
+        // Die Kollision laeuft ueber den BoxCollider2D, der dem Transform folgt.
+        Vector3 kopfZiel = logikPositionen[0];
+        LeanTween.cancel(gameObject);
+        transform.position = kopfZiel;          // sofort fuer Kollision
+        // Optisch: von voriger Position zur neuen gleiten
+        if (kopfVorigePos != kopfZiel)
+        {
+            transform.position = kopfVorigePos; // kurz zurueck fuer den Tween-Start
+            LeanTween.move(gameObject, kopfZiel, stepDuration * 0.9f)
+                .setEase(moveEaseType)
+                .setUseEstimatedTime(true)
+                .setOnComplete(() => { if (this != null) transform.position = kopfZiel; });
+        }
+        kopfVorigePos = kopfZiel;
 
-        // Kopf in Bewegungsrichtung drehen
+        // --- Pfadhistorie: neue Kopfposition vorne einfuegen ---
+        pfadHistorie.Insert(0, logikPositionen[0]);
+
+        // Historie auf benoedigte Laenge kuerzen:
+        // letztes Segment braucht Index (Count-1) * segmentAbstand
+        int maxHistorie = Mathf.CeilToInt((segments.Count - 1) * segmentAbstand) + 2;
+        while (pfadHistorie.Count > maxHistorie)
+            pfadHistorie.RemoveAt(pfadHistorie.Count - 1);
+
+        // --- Segment-Logikpositionen aus der Pfadhistorie lesen ---
+        for (int i = 1; i < segments.Count; i++)
+        {
+            float zielIdx = i * segmentAbstand;
+            int idxA = Mathf.FloorToInt(zielIdx);
+            int idxB = idxA + 1;
+            float t = zielIdx - idxA;
+
+            idxA = Mathf.Clamp(idxA, 0, pfadHistorie.Count - 1);
+            idxB = Mathf.Clamp(idxB, 0, pfadHistorie.Count - 1);
+
+            logikPositionen[i] = Vector3.Lerp(pfadHistorie[idxA], pfadHistorie[idxB], t);
+        }
+
+        // Kopf in Bewegungsrichtung drehen (Root dreht sich, Child folgt mit)
         Vector3 kopfDelta = new Vector3(direction.x, direction.y, 0f);
         transform.rotation = Quaternion.Euler(0f, 0f, RichtungsWinkel(kopfDelta));
 
@@ -180,7 +226,7 @@ public class Snake : MonoBehaviour
         nextUpdate = Time.fixedTime + stepDuration;
     }
 
-    public void Grow(Nahrungstyp typ = null)
+    public void Grow(Nahrungstyp typ = null, int stufe = 1)
     {
         Transform segment = Instantiate(segmentPrefab);
 
@@ -203,8 +249,12 @@ public class Snake : MonoBehaviour
 
         SnakeSegment snakeSegment = segment.gameObject.AddComponent<SnakeSegment>();
         snakeSegment.StandardTurmPrefab = standardTurmPrefab;
-        snakeSegment.SetzeTyp(typ);
+        snakeSegment.SetzeTyp(typ, stufe);
         snakeSegment.OnSegmentGestorben += SegmentGestorben;
+
+        // Segment unter dem Kopf rendern; spaetere Segmente unter frueheren
+        foreach (SpriteRenderer sr in segment.GetComponentsInChildren<SpriteRenderer>())
+            sr.sortingOrder = Mathf.Max(0, 9 - segments.Count);
 
         segments.Add(segment);
     }
@@ -247,6 +297,37 @@ public class Snake : MonoBehaviour
         }
     }
 
+    // Entfernt mehrere, NICHT zusammenhaengende Segmente (z.B. ein Match aus
+    // verstreuten Segmenten gleichen Typs + gleicher Stufe).
+    // Index 0 (Kopf) wird nie entfernt. Luecken schliessen sich automatisch,
+    // weil die verbleibenden Segmente ihre Position jeden Tick neu aus der
+    // pfadHistorie lesen.
+    public void EntferneSegmenteAnIndizes(List<int> indizes)
+    {
+        if (indizes == null || indizes.Count == 0) return;
+
+        // Absteigend sortieren, damit die Indizes beim Entfernen gueltig bleiben
+        List<int> sortiert = new List<int>(indizes);
+        sortiert.Sort();
+        sortiert.Reverse();
+
+        foreach (int idx in sortiert)
+        {
+            // Kopf (0) und ungueltige Indizes ueberspringen
+            if (idx <= 0 || idx >= segments.Count) continue;
+
+            if (segments[idx] != null)
+            {
+                LeanTween.cancel(segments[idx].gameObject);
+                StartCoroutine(PopOutUndZerstoere(segments[idx].gameObject));
+            }
+
+            segments.RemoveAt(idx);
+            if (idx < logikPositionen.Count) logikPositionen.RemoveAt(idx);
+            if (idx < vorigeLogikPos.Count)  vorigeLogikPos.RemoveAt(idx);
+        }
+    }
+
     private System.Collections.IEnumerator PopOutUndZerstoere(GameObject go)
     {
         float dauer = 0.15f;
@@ -271,6 +352,7 @@ public class Snake : MonoBehaviour
         direction = Vector2Int.right;
         transform.position = Vector3.zero;
         transform.localScale = basisScale;
+        kopfVorigePos = Vector3.zero;
 
         for (int i = 1; i < segments.Count; i++)
         {
@@ -283,6 +365,7 @@ public class Snake : MonoBehaviour
         segments.Clear();
         logikPositionen.Clear();
         vorigeLogikPos.Clear();
+        pfadHistorie.Clear();
 
         segments.Add(transform);
         logikPositionen.Add(Vector3.zero);
@@ -292,6 +375,13 @@ public class Snake : MonoBehaviour
         {
             Grow();
         }
+
+        // pfadHistorie vorbelegen: genug Eintraege damit jedes Startsegment
+        // seine korrekte Startposition lesen kann statt alle auf Position 0
+        int benoetigt = Mathf.CeilToInt((segments.Count - 1) * segmentAbstand) + 2;
+        pfadHistorie.Clear();
+        for (int i = 0; i < benoetigt; i++)
+            pfadHistorie.Add(Vector3.zero);
     }
 
     public bool Occupies(int x, int y)

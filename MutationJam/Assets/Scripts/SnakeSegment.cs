@@ -10,6 +10,10 @@ public class SnakeSegment : MonoBehaviour
     public Tower AktuellerTurm      { get; private set; }
     public float AktuelleHealth     { get; private set; }
 
+    // Mutationsstufe dieses Segments (1 = frisch gefressen, kein Bonus).
+    // Hoehere Stufen skalieren die Turmwerte ueber TurmKonfiguration.BerechneWerte().
+    public int Mutationsstufe       { get; private set; } = 1;
+
     // Wird von Snake.Grow() gesetzt, bevor SetzeTyp() aufgerufen wird.
     public GameObject StandardTurmPrefab { private get; set; }
 
@@ -25,12 +29,23 @@ public class SnakeSegment : MonoBehaviour
         AktuelleHealth = maxHealth;
     }
 
-    public void SetzeTyp(Nahrungstyp typ)
+    // stufe optional: alte Aufrufe (SetzeTyp(typ)) bleiben gueltig und liefern Stufe 1.
+    public void SetzeTyp(Nahrungstyp typ, int stufe = 1)
     {
-        Typ = typ;
+        Typ            = typ;
+        Mutationsstufe = Mathf.Max(1, stufe);
 
-        if (spriteRenderer != null && typ != null) {
-            spriteRenderer.color = typ.farbe;
+        if (typ == null) { SpawneTurm(typ); return; }
+
+        // 2D-Sprite faerben – auch wenn der SpriteRenderer-Child inaktiv ist
+        SpriteRenderer sr = GetComponentInChildren<SpriteRenderer>(true);
+        if (sr != null) sr.color = typ.farbe;
+
+        // 3D-Sphere: Material des ersten MeshRenderer-Child setzen
+        if (typ.material != null)
+        {
+            MeshRenderer mr = GetComponentInChildren<MeshRenderer>(true);
+            if (mr != null) mr.material = typ.material;
         }
 
         SpawneTurm(typ);
@@ -108,14 +123,7 @@ public class SnakeSegment : MonoBehaviour
 
         AktuellerTurm = turmGO.GetComponent<Tower>();
 
-        if (AktuellerTurm != null && config != null)
-        {
-            AktuellerTurm.range    = config.reichweite;
-            AktuellerTurm.fireRate = config.schussrate;
-            if (config.projektilPrefab != null) {
-                AktuellerTurm.projectilePrefab = config.projektilPrefab;
-            }
-        }
+        WendeKonfigAn(config);
     }
 
     public void AktualisiereTurm(TurmKonfiguration neueKonfig)
@@ -132,10 +140,22 @@ public class SnakeSegment : MonoBehaviour
 
         AktuellerTurm = turmGO.GetComponent<Tower>();
 
-        if (AktuellerTurm != null)
-        {
-            AktuellerTurm.range    = neueKonfig.reichweite;
-            AktuellerTurm.fireRate = neueKonfig.schussrate;
+        WendeKonfigAn(neueKonfig);
+    }
+
+    // Schreibt die – je nach Mutationsstufe skalierten – Werte auf den aktuellen Turm.
+    private void WendeKonfigAn(TurmKonfiguration config)
+    {
+        if (AktuellerTurm == null || config == null) return;
+
+        TurmKonfiguration.SkalierteWerte werte = config.BerechneWerte(Mutationsstufe);
+
+        AktuellerTurm.range    = werte.reichweite;
+        AktuellerTurm.fireRate = werte.schussrate;
+        AktuellerTurm.schaden  = werte.schaden;
+
+        if (config.projektilPrefab != null) {
+            AktuellerTurm.projectilePrefab = config.projektilPrefab;
         }
     }
 }

@@ -4,7 +4,12 @@ public class Tower : MonoBehaviour
 {
     [Header("Turm-Werte")]
     public float range = 5f;        // Reichweite des Turms
-    public float fireRate = 1f;     // Schüsse pro Sekunde
+    public float fireRate = 1f;     // Schuesse pro Sekunde
+
+    [Tooltip("Schaden pro Projektil. Wird vom Segment je nach Mutationsstufe gesetzt " +
+             "und beim Schuss auf das Projektil geschrieben.")]
+    public float schaden = 10f;
+
     private float fireCountdown = 0f;
 
     [Header("Unity Setup")]
@@ -52,7 +57,7 @@ public class Tower : MonoBehaviour
         if (target == null)
             return;
 
-        // Cooldown-System für die Schussrate
+        // Cooldown-System fuer die Schussrate
         if (fireCountdown <= 0f)
         {
             Shoot();
@@ -72,6 +77,8 @@ public class Tower : MonoBehaviour
 
         if (projectile != null)
         {
+            // Schaden des Turms (ggf. durch Mutationsstufe skaliert) ans Projektil weitergeben
+            projectile.damage = schaden;
             projectile.Seek(target);
         }
     }

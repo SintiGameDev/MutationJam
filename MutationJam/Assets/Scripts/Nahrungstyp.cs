@@ -4,10 +4,12 @@ using UnityEngine;
 public class Nahrungstyp
 {
     public string bezeichnung;
-    public Color farbe = Color.white;
+    public Color  farbe = Color.white;
 
-    [Tooltip("Welche Turmkonfiguration Segmente dieses Typs erhalten. " +
-             "Leer lassen = Standard-Turm aus Snake.standardTurmPrefab.")]
+    [Tooltip("Material fuer die 3D-Sphere des Segments (und des Foods).")]
+    public Material material;
+
+    [Tooltip("Welche Turmkonfiguration Segmente dieses Typs erhalten.")]
     public TurmKonfiguration turmKonfiguration;
 
     public static readonly Nahrungstyp Rot    = new Nahrungstyp { bezeichnung = "Rot",    farbe = Color.red };

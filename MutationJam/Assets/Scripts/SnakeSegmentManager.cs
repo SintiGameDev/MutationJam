@@ -15,56 +15,92 @@ public class SnakeSegmentManager : MonoBehaviour
 
     public void PruefeKombos()
     {
+        // Kaskaden: nach jeder aufgeloesten Mutation erneut pruefen, da das
+        // neu angehaengte Stufe-+1-Segment selbst ein neues Triple bilden kann.
         while (PruefeEinzelneKombo()) { }
     }
 
+    // Sucht drei Segmente GLEICHEN Typs UND gleicher Mutationsstufe – egal wo
+    // in der Schlange sie liegen (muessen NICHT nebeneinander sein).
+    // Findet sich ein solches Triple: die drei entfernen und stattdessen EIN
+    // neues Segment gleichen Typs mit Stufe +1 hinten anhaengen.
     private bool PruefeEinzelneKombo()
     {
         List<Transform> segmente = snake.Segments;
 
-        if (segmente.Count < 4) return false;
-
-        Nahrungstyp runTyp  = null;
-        int runStart        = -1;
-        int runLaenge       = 0;
+        // Index 0 ist der Kopf -> wird nie einbezogen.
+        // Gruppen nach (Typ, Stufe). Pro Gruppe merken wir uns die Segment-Indizes.
+        Dictionary<KomboSchluessel, List<int>> gruppen = new Dictionary<KomboSchluessel, List<int>>();
 
         for (int i = 1; i < segmente.Count; i++)
         {
-            Nahrungstyp typ = segmente[i].GetComponent<SnakeSegment>()?.Typ;
+            if (segmente[i] == null) continue;
 
-            if (typ != null && typ == runTyp)
-            {
-                runLaenge++;
-            }
-            else
-            {
-                if (runLaenge >= 3)
-                {
-                    EntferneSegmente(runStart, runLaenge);
-                    Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segments.Count}");
-                    return true;
-                }
+            SnakeSegment seg = segmente[i].GetComponent<SnakeSegment>();
+            if (seg == null || seg.Typ == null) continue;
 
-                runTyp    = typ;
-                runStart  = i;
-                runLaenge = 1;
+            KomboSchluessel key = new KomboSchluessel(seg.Typ, seg.Mutationsstufe);
+
+            if (!gruppen.TryGetValue(key, out List<int> indizes))
+            {
+                indizes = new List<int>();
+                gruppen[key] = indizes;
             }
+            indizes.Add(i);
         }
 
-        if (runLaenge >= 3)
+        foreach (KeyValuePair<KomboSchluessel, List<int>> gruppe in gruppen)
         {
-            EntferneSegmente(runStart, runLaenge);
-            Debug.Log($"Match-3 aufgeloest ab Index {runStart}, Laenge {runLaenge}. Verbleibend: {snake.Segments.Count}");
-            return true;
+            if (gruppe.Value.Count >= 3)
+            {
+                // Die ersten drei Vorkommen entfernen (Reihenfolge egal fuers Spiel,
+                // da nur die Anzahl zaehlt).
+                List<int> zuEntfernen = gruppe.Value.GetRange(0, 3);
+                snake.EntferneSegmenteAnIndizes(zuEntfernen);
+
+                // Ein Segment gleichen Typs, eine Stufe hoeher, hinten anhaengen.
+                Nahrungstyp typ = gruppe.Key.Typ;
+                int neueStufe    = gruppe.Key.Stufe + 1;
+                snake.Grow(typ, neueStufe);
+
+                Debug.Log($"Mutation: 3x {typ.bezeichnung} (Stufe {gruppe.Key.Stufe}) " +
+                          $"-> 1x Stufe {neueStufe}. Verbleibend: {snake.Segments.Count}");
+                return true;
+            }
         }
 
         return false;
     }
 
-    private void EntferneSegmente(int startIndex, int anzahl)
+    // Schluessel fuer die Gruppierung: kombiniert Nahrungstyp (Referenzgleichheit)
+    // und Mutationsstufe zu einem Dictionary-tauglichen Wert.
+    private struct KomboSchluessel : System.IEquatable<KomboSchluessel>
     {
-        // Snake kuemmert sich um logikPositionen/vorigeLogikPos-Synchronisierung
-        // und spielt den PopOut-Effekt ab
-        snake.EntferneSegmente(startIndex, anzahl);
+        public readonly Nahrungstyp Typ;
+        public readonly int Stufe;
+
+        public KomboSchluessel(Nahrungstyp typ, int stufe)
+        {
+            Typ   = typ;
+            Stufe = stufe;
+        }
+
+        public bool Equals(KomboSchluessel other)
+        {
+            // Nahrungstyp wird per Referenz verglichen – gleiche Food-Typen
+            // teilen sich dieselbe Instanz (Inspector-Array bzw. statische Typen).
+            return ReferenceEquals(Typ, other.Typ) && Stufe == other.Stufe;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is KomboSchluessel andere && Equals(andere);
+        }
+
+        public override int GetHashCode()
+        {
+            int typHash = Typ != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Typ) : 0;
+            return typHash * 397 ^ Stufe;
+        }
     }
 }
