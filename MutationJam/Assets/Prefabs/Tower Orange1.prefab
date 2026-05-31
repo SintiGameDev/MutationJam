@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 50817761661067401}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.743, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -133,11 +133,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a54a0fde59e97e9488a6953d56856910, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  range: 5
+  range: 30
   fireRate: 5
-  schaden: 10
+  schaden: 20
   enemyTag: Enemy
   firePoint: {fileID: 6195217544564902103}
+  firePoints: []
   projectilePrefab: {fileID: 5451908957895355184, guid: 4d5cdb69596782b4bbb0372aec6463ce,
     type: 3}
   blickrichtungOffset: 0

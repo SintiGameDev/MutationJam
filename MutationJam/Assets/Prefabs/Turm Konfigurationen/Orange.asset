@@ -17,7 +17,7 @@ MonoBehaviour:
   reichweite: 10
   schussrate: 8
   schaden: 10
-  projektilPrefab: {fileID: 5451908957895355184, guid: 4d5cdb69596782b4bbb0372aec6463ce,
+  projektilPrefab: {fileID: 5451908957895355184, guid: 92a83df2f1d9ee742a732844f0ec7561,
     type: 3}
   skalierungsModus: 0
   skalierungsFaktor: 0.5

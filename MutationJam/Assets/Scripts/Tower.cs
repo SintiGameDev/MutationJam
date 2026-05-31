@@ -14,7 +14,15 @@ public class Tower : MonoBehaviour
 
     [Header("Unity Setup")]
     public string enemyTag = "Enemy";
-    public Transform firePoint;     // Der Punkt, an dem das Projektil spawnt
+
+    [Tooltip("Einzelner Feuerpunkt (Fallback). Wird nur benutzt, wenn 'Fire Points' " +
+             "leer ist – so bleiben bestehende Prefabs ohne Aenderung lauffaehig.")]
+    public Transform firePoint;
+
+    [Tooltip("Mehrere Feuerpunkte. Bei einem Schuss feuern ALLE gleichzeitig auf das " +
+             "anvisierte Ziel. Ist die Liste leer, wird 'Fire Point' oben benutzt.")]
+    public Transform[] firePoints;
+
     public GameObject projectilePrefab;
 
     [Header("Ausrichtung")]
