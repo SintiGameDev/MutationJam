@@ -17,6 +17,17 @@ public class Tower : MonoBehaviour
     public Transform firePoint;     // Der Punkt, an dem das Projektil spawnt
     public GameObject projectilePrefab;
 
+    [Header("Ausrichtung")]
+    [Tooltip("Wohin das Sprite im Ruhezustand zeigt:\n" +
+             "  -90 = Sprite schaut nach OBEN (+Y)\n" +
+             "    0 = Sprite schaut nach RECHTS (+X)\n" +
+             "  180 = nach links,  90 = nach unten.\n" +
+             "An dein Geschuetz-Sprite anpassen.")]
+    public float blickrichtungOffset = -90f;
+
+    [Tooltip("Drehgeschwindigkeit in Grad/Sekunde. 0 = sofort ausrichten (kein Nachdrehen).")]
+    public float drehGeschwindigkeit = 720f;
+
     private Transform target;
 
     void Start()
@@ -65,6 +76,38 @@ public class Tower : MonoBehaviour
         }
 
         fireCountdown -= Time.deltaTime;
+    }
+
+    // Ausrichtung NACH der Segment-Bewegung (LeanTween laeuft im Update),
+    // damit auf die finale Position dieses Frames gezielt wird.
+    void LateUpdate()
+    {
+        RichteAufZiel();
+    }
+
+    private void RichteAufZiel()
+    {
+        if (target == null) return;   // kein Ziel -> Geschuetz bleibt, wo es war
+
+        // Richtung in der XY-Ebene (2D-Spielfeld)
+        Vector3 richtung = target.position - transform.position;
+        if (richtung.sqrMagnitude < 0.0001f) return;
+
+        float winkel = Mathf.Atan2(richtung.y, richtung.x) * Mathf.Rad2Deg + blickrichtungOffset;
+
+        // WELT-Rotation setzen, damit die Segment-Drehung (RichtungsWinkel)
+        // die Ausrichtung NICHT mitverdreht.
+        Quaternion ziel = Quaternion.Euler(0f, 0f, winkel);
+
+        if (drehGeschwindigkeit <= 0f)
+        {
+            transform.rotation = ziel;   // sofort
+        }
+        else
+        {
+            transform.rotation = Quaternion.RotateTowards(
+                transform.rotation, ziel, drehGeschwindigkeit * Time.deltaTime);
+        }
     }
 
     void Shoot()

@@ -15,6 +15,19 @@ public class Snake : MonoBehaviour
     [Tooltip("Wird an Segmente ohne eigene TurmKonfiguration uebergeben (z.B. Startsegmente)")]
     public GameObject standardTurmPrefab;
 
+    [Header("Stufen-Anzeige")]
+    [Tooltip("Welt-Badge (Prefab mit TextMeshPro) das die Mutationsstufe zeigt. " +
+             "Leer lassen = keine Anzeige.")]
+    public GameObject stufenAnzeigePrefab;
+    [Tooltip("Welt-Offset relativ zum Segment. Bleibt im Weltraum, dreht/squasht NICHT mit. " +
+             "Tipp: nach unten und leicht zur Kamera, damit der Turm in der Mitte frei bleibt.")]
+    public Vector3 stufenAnzeigeOffset = new Vector3(0f, -0.5f, -0.1f);
+    [Tooltip("Ab welcher Stufe die Anzeige erscheint. 1 = immer, 2 = erst ab erster Mutation.")]
+    public int stufenAnzeigeAbStufe = 2;
+    [Tooltip("Screen Space - Overlay Canvas, unter dem die Stufen-Badges erzeugt werden. " +
+             "Pflicht, sonst rendert das UI-Badge nicht.")]
+    public Canvas stufenAnzeigeCanvas;
+
     [Header("Juice Einstellungen (LeanTween)")]
     public LeanTweenType moveEaseType = LeanTweenType.linear;
     public LeanTweenType segmentEaseType = LeanTweenType.easeOutQuad;
@@ -248,7 +261,11 @@ public class Snake : MonoBehaviour
             .setUseEstimatedTime(true);
 
         SnakeSegment snakeSegment = segment.gameObject.AddComponent<SnakeSegment>();
-        snakeSegment.StandardTurmPrefab = standardTurmPrefab;
+        snakeSegment.StandardTurmPrefab  = standardTurmPrefab;
+        snakeSegment.StufenAnzeigePrefab = stufenAnzeigePrefab;
+        snakeSegment.StufenAnzeigeOffset = stufenAnzeigeOffset;
+        snakeSegment.AnzeigeAbStufe      = stufenAnzeigeAbStufe;
+        snakeSegment.StufenAnzeigeCanvas = stufenAnzeigeCanvas;
         snakeSegment.SetzeTyp(typ, stufe);
         snakeSegment.OnSegmentGestorben += SegmentGestorben;
 

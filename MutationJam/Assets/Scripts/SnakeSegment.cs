@@ -17,11 +17,18 @@ public class SnakeSegment : MonoBehaviour
     // Wird von Snake.Grow() gesetzt, bevor SetzeTyp() aufgerufen wird.
     public GameObject StandardTurmPrefab { private get; set; }
 
+    // Stufen-Anzeige-Konfiguration (ebenfalls von Snake.Grow() vorab gesetzt).
+    public GameObject StufenAnzeigePrefab { private get; set; }
+    public Vector3    StufenAnzeigeOffset { private get; set; }
+    public int        AnzeigeAbStufe      { private get; set; } = 2;
+    public Canvas     StufenAnzeigeCanvas { private get; set; }   // Screen Space - Overlay
+
     // Snake lauscht hierauf, um das Segment aus der Liste zu entfernen
     public event System.Action<SnakeSegment> OnSegmentGestorben;
 
     private SpriteRenderer spriteRenderer;
     private bool istAmSterben = false;
+    private StufenAnzeige stufenAnzeige;
 
     private void Awake()
     {
@@ -35,7 +42,11 @@ public class SnakeSegment : MonoBehaviour
         Typ            = typ;
         Mutationsstufe = Mathf.Max(1, stufe);
 
-        if (typ == null) { SpawneTurm(typ); return; }
+        // Start-Segmente (typlos) bekommen WEDER Turm NOCH Stufenanzeige.
+        // Nur vom Spieler eingesammelte / mutierte Segmente (mit Typ) werden bestueckt.
+        if (typ == null) return;
+
+        AktualisiereStufenAnzeige();
 
         // 2D-Sprite faerben – auch wenn der SpriteRenderer-Child inaktiv ist
         SpriteRenderer sr = GetComponentInChildren<SpriteRenderer>(true);
@@ -109,6 +120,36 @@ public class SnakeSegment : MonoBehaviour
         }
 
         Destroy(gameObject);
+    }
+
+    // Erzeugt das Stufen-Badge (oder aktualisiert die Zahl). Erscheint erst ab
+    // AnzeigeAbStufe, damit Stufe-1-Segmente nicht zugekleistert werden.
+    private void AktualisiereStufenAnzeige()
+    {
+        if (StufenAnzeigePrefab == null) return;
+
+        // Unter der Schwelle: keine Anzeige (falls doch eine existiert, entfernen).
+        if (Mutationsstufe < AnzeigeAbStufe)
+        {
+            if (stufenAnzeige != null) Destroy(stufenAnzeige.gameObject);
+            return;
+        }
+
+        if (stufenAnzeige == null)
+        {
+            // Unter dem Overlay-Canvas instanziieren, damit das UI-Badge rendert.
+            Transform parent = StufenAnzeigeCanvas != null ? StufenAnzeigeCanvas.transform : null;
+            GameObject go = Instantiate(StufenAnzeigePrefab, parent);
+
+            stufenAnzeige = go.GetComponent<StufenAnzeige>();
+            if (stufenAnzeige == null) stufenAnzeige = go.AddComponent<StufenAnzeige>();
+
+            stufenAnzeige.Initialisiere(transform, StufenAnzeigeOffset, Mutationsstufe);
+        }
+        else
+        {
+            stufenAnzeige.SetzeStufe(Mutationsstufe);
+        }
     }
 
     private void SpawneTurm(Nahrungstyp typ)

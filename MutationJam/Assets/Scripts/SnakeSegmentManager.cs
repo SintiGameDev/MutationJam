@@ -60,7 +60,7 @@ public class SnakeSegmentManager : MonoBehaviour
 
                 // Ein Segment gleichen Typs, eine Stufe hoeher, hinten anhaengen.
                 Nahrungstyp typ = gruppe.Key.Typ;
-                int neueStufe    = gruppe.Key.Stufe + 1;
+                int neueStufe = gruppe.Key.Stufe + 1;
                 snake.Grow(typ, neueStufe);
 
                 Debug.Log($"Mutation: 3x {typ.bezeichnung} (Stufe {gruppe.Key.Stufe}) " +
@@ -72,24 +72,29 @@ public class SnakeSegmentManager : MonoBehaviour
         return false;
     }
 
-    // Schluessel fuer die Gruppierung: kombiniert Nahrungstyp (Referenzgleichheit)
-    // und Mutationsstufe zu einem Dictionary-tauglichen Wert.
+    // Schluessel fuer die Gruppierung. Verglichen wird ueber die BEZEICHNUNG
+    // (nicht die Objekt-Referenz!), weil Nahrungstyp eine schlichte
+    // [System.Serializable]-Klasse ist: zwei "rote" Foods aus verschiedenen
+    // Food-Objekten oder verschiedenen Array-Slots sind verschiedene Instanzen,
+    // aber dieselbe Sorte. Die Typ-Referenz selbst behalten wir nur, um beim
+    // Anhaengen des Stufe-+1-Segments Farbe/Material/Turmkonfig mitzugeben.
     private struct KomboSchluessel : System.IEquatable<KomboSchluessel>
     {
-        public readonly Nahrungstyp Typ;
+        public readonly Nahrungstyp Typ;   // Repraesentant der Sorte
         public readonly int Stufe;
 
         public KomboSchluessel(Nahrungstyp typ, int stufe)
         {
-            Typ   = typ;
+            Typ = typ;
             Stufe = stufe;
         }
 
+        // Stabile Identitaet der Sorte = bezeichnung
+        private string Id => Typ != null ? Typ.bezeichnung : null;
+
         public bool Equals(KomboSchluessel other)
         {
-            // Nahrungstyp wird per Referenz verglichen – gleiche Food-Typen
-            // teilen sich dieselbe Instanz (Inspector-Array bzw. statische Typen).
-            return ReferenceEquals(Typ, other.Typ) && Stufe == other.Stufe;
+            return Stufe == other.Stufe && string.Equals(Id, other.Id);
         }
 
         public override bool Equals(object obj)
@@ -99,8 +104,8 @@ public class SnakeSegmentManager : MonoBehaviour
 
         public override int GetHashCode()
         {
-            int typHash = Typ != null ? System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(Typ) : 0;
-            return typHash * 397 ^ Stufe;
+            int idHash = Id != null ? Id.GetHashCode() : 0;
+            return idHash * 397 ^ Stufe;
         }
     }
 }
