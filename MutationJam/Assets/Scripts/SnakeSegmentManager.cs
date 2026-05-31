@@ -61,7 +61,10 @@ public class SnakeSegmentManager : MonoBehaviour
                 // Ein Segment gleichen Typs, eine Stufe hoeher, hinten anhaengen.
                 Nahrungstyp typ = gruppe.Key.Typ;
                 int neueStufe = gruppe.Key.Stufe + 1;
-                snake.Grow(typ, neueStufe);
+                snake.Grow(typ, neueStufe);   // spieleSpawnSound bleibt false -> kein Spawn-Sound
+
+                // Merge-Sound (statt Spawn-Sound) fuer die Mutation.
+                SoundManager.Instance?.SpieleMerge();
 
                 Debug.Log($"Mutation: 3x {typ.bezeichnung} (Stufe {gruppe.Key.Stufe}) " +
                           $"-> 1x Stufe {neueStufe}. Verbleibend: {snake.Segments.Count}");
