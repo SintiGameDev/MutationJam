@@ -46,6 +46,10 @@ public class Snake : MonoBehaviour
     public float squashAmount = 1.25f;
     public float RaupenFaktor = 0.05f;
 
+    // Wird gefeuert, wenn die Schlange stirbt (Kopf, Wand oder Selbstkollision).
+    // Die UI haengt sich hier dran, um den Death-Screen zu zeigen.
+    public event System.Action OnGestorben;
+
     private readonly List<Transform> segments = new List<Transform>();
     private readonly List<Vector3> logikPositionen = new List<Vector3>();
     private readonly List<Vector3> vorigeLogikPos = new List<Vector3>();
@@ -63,13 +67,13 @@ public class Snake : MonoBehaviour
 
     public List<Transform> Segments => segments;
 
-    // True, wenn nur noch der Kopf existiert (keine Koerper-Segmente).
     public bool NurKopfUebrig => segments.Count <= 1;
     public float KopfHealth => kopfHealth;
 
     // --- Kopf-Gesundheit (Laufzeit) ---
     private float kopfHealth;
     private bool kopfStirbt = false;
+    private bool istTot = false;
     private SpriteRenderer kopfSprite;
     private MeshRenderer kopfMesh;
     private Color kopfGrundFarbeSprite = Color.white;
@@ -86,7 +90,6 @@ public class Snake : MonoBehaviour
         ResetState();
     }
 
-    // Sprite- und/oder Mesh-Renderer des Kopfes ermitteln und Grundfarbe merken.
     private void ErmittleKopfRenderer()
     {
         kopfSprite = GetComponent<SpriteRenderer>();
@@ -112,6 +115,8 @@ public class Snake : MonoBehaviour
 
     private void Update()
     {
+        if (istTot) return;
+
         if (direction.x != 0f)
         {
             if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
@@ -138,6 +143,8 @@ public class Snake : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (istTot) return;   // tote Schlange bewegt sich nicht mehr
+
         if (Time.fixedTime < nextUpdate)
         {
             return;
@@ -375,8 +382,6 @@ public class Snake : MonoBehaviour
 
     // === KOPF-GESUNDHEIT ===
 
-    // Wird vom Gegner aufgerufen, wenn er den Kopf angreift.
-    // Wirkt NUR, wenn keine Koerper-Segmente mehr existieren.
     public void KopfNimmtSchaden(float schaden)
     {
         if (!NurKopfUebrig) return;   // Kopf geschuetzt, solange Koerper existiert
@@ -393,15 +398,19 @@ public class Snake : MonoBehaviour
 
         if (kopfHealth <= 0f)
         {
-            KopfStirbt();
+            kopfStirbt = true;
+            Sterben();
         }
     }
 
-    private void KopfStirbt()
+    // Zentraler Todeseinstieg: feuert nur das Event. Die UI zeigt daraufhin
+    // den Death-Screen und pausiert das Spiel. Kein ResetState hier – der
+    // Neustart laeuft ueber den Button (Szene neu laden).
+    private void Sterben()
     {
-        kopfStirbt = true;
-        // Tod des Kopfes = Spiel zuruecksetzen (wie bei Wand-/Selbstkollision)
-        ResetState();
+        if (istTot) return;
+        istTot = true;
+        OnGestorben?.Invoke();
     }
 
     private System.Collections.IEnumerator KopfBlitz()
@@ -442,9 +451,10 @@ public class Snake : MonoBehaviour
         transform.localScale = basisScale;
         kopfVorigePos = Vector3.zero;
 
-        // Kopf-Gesundheit zuruecksetzen
+        // Zustand zuruecksetzen
         kopfHealth = kopfMaxHealth;
         kopfStirbt = false;
+        istTot = false;
         if (kopfBlitzCoroutine != null)
         {
             StopCoroutine(kopfBlitzCoroutine);
@@ -534,7 +544,7 @@ public class Snake : MonoBehaviour
                 }
             }
 
-            ResetState();
+            Sterben();
         }
         else if (other.gameObject.CompareTag("Wall"))
         {
@@ -544,7 +554,7 @@ public class Snake : MonoBehaviour
             }
             else
             {
-                ResetState();
+                Sterben();
             }
         }
     }
