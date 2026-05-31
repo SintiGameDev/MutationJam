@@ -3,6 +3,7 @@ using UnityEngine;
 //  - Schaden durch Projektile (je nach Projektilwert)
 //  - sofortiger Tod, wenn der SchlangenKOPF den Gegner FRISST
 //    (nur solange die Schlange noch Koerper-Segmente hat)
+// Beim Tod gibt es Score in Hoehe des Maximallebens (siehe ScoreManager.GegnerGetoetet).
 [RequireComponent(typeof(Collider2D))]
 public class EnemyHealthManager : MonoBehaviour
 {
@@ -10,8 +11,8 @@ public class EnemyHealthManager : MonoBehaviour
     public float maxLeben = 100f;
 
     [Header("Belohnung")]
-    [Tooltip("Punkte fuer den Spieler beim Toeten dieses Gegners (0 = keine).")]
-    public int punkteBeiTod = 0;
+    [Tooltip("Zusaetzliche Bonuspunkte beim Toeten (0 = nur das Maximalleben zaehlt).")]
+    public int bonusPunkteBeiTod = 0;
 
     private float aktuellesLeben;
     private bool istTot = false;
@@ -45,9 +46,16 @@ public class EnemyHealthManager : MonoBehaviour
         if (istTot) return;
         istTot = true;
 
-        if (punkteBeiTod > 0 && ScoreManager.Instance != null)
+        if (ScoreManager.Instance != null)
         {
-            ScoreManager.Instance.PunkteHinzufuegen(punkteBeiTod);
+            // Score += Maximalleben des Gegners ...
+            ScoreManager.Instance.GegnerGetoetet(maxLeben);
+
+            // ... plus optionaler Bonus
+            if (bonusPunkteBeiTod > 0)
+            {
+                ScoreManager.Instance.PunkteHinzufuegen(bonusPunkteBeiTod);
+            }
         }
 
         Destroy(gameObject);
@@ -59,8 +67,7 @@ public class EnemyHealthManager : MonoBehaviour
         if (snake != null)
         {
             // Der Kopf frisst den Gegner NUR, solange noch Koerper-Segmente
-            // existieren. Ist nur noch der Kopf uebrig, ueberlebt der Gegner
-            // und kann den Kopf angreifen (siehe EnemyFollow2D).
+            // existieren. Ist nur noch der Kopf uebrig, ueberlebt der Gegner.
             if (!snake.NurKopfUebrig)
             {
                 SofortToeten();

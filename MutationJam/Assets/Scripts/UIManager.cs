@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
@@ -9,11 +10,20 @@ public class UIManager : MonoBehaviour
              "Bei eigenem Dokument: Sort Order hoeher als das HUD setzen.")]
     [SerializeField] private UIDocument deathScreenDocument;
 
+    [Header("Score-Animation")]
+    [Tooltip("Wie stark das Score-Label bei jeder Aenderung kurz aufpoppt (1 = aus).")]
+    public float punchSkala = 1.4f;
+    [Tooltip("Dauer des Aufpopp-Effekts in Sekunden.")]
+    public float punchDauer = 0.18f;
+
     private Snake snake;
 
     private Label scoreValue;
     private VisualElement deathRoot;
     private Label deathScoreValue;
+
+    private Coroutine punchCoroutine;
+    private bool scoreInitialisiert = false;
 
     void Start()
     {
@@ -21,13 +31,10 @@ public class UIManager : MonoBehaviour
 
         var hudRoot = GetComponent<UIDocument>().rootVisualElement;
 
-        // HUD
         scoreValue = hudRoot.Q<Label>("score-value");
         VerkabeleButton(hudRoot, "menu-button", OeffneMenue);
         VerkabeleButton(hudRoot, "restart-button", NeuStarten);
 
-        // Death-Elemente: erst im (optionalen) Death-Dokument suchen, sonst im HUD-Root.
-        // So funktioniert es, egal ob du ein zweites UIDocument nutzt oder alles in einem hast.
         VisualElement suchRoot = (deathScreenDocument != null)
             ? deathScreenDocument.rootVisualElement
             : hudRoot;
@@ -72,7 +79,6 @@ public class UIManager : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    // Sucht den Button und haengt den Handler an – mit Warnung, falls nicht gefunden.
     private void VerkabeleButton(VisualElement root, string name, System.Action handler)
     {
         Button btn = root.Q<Button>(name);
@@ -92,6 +98,13 @@ public class UIManager : MonoBehaviour
         {
             scoreValue.text = score.ToString();
         }
+
+        // Beim allerersten Setzen (Spielstart) NICHT poppen
+        if (scoreInitialisiert)
+        {
+            StartePunch(scoreValue);
+        }
+        scoreInitialisiert = true;
     }
 
     private void ZeigeDeathScreen()
@@ -99,6 +112,7 @@ public class UIManager : MonoBehaviour
         if (deathScoreValue != null && ScoreManager.Instance != null)
         {
             deathScoreValue.text = ScoreManager.Instance.AktuellerScore.ToString();
+            StartePunch(deathScoreValue);
         }
         if (deathRoot != null)
         {
@@ -107,16 +121,44 @@ public class UIManager : MonoBehaviour
         Time.timeScale = 0f;
     }
 
+    // Startet den Aufpopp-Effekt fuer ein Label (vorherigen stoppen).
+    private void StartePunch(Label label)
+    {
+        if (label == null || punchSkala <= 1f) return;
+
+        if (punchCoroutine != null)
+        {
+            StopCoroutine(punchCoroutine);
+        }
+        punchCoroutine = StartCoroutine(PunchRoutine(label));
+    }
+
+    private IEnumerator PunchRoutine(Label label)
+    {
+        float t = 0f;
+        float dauer = Mathf.Max(0.0001f, punchDauer);
+
+        while (t < dauer)
+        {
+            // Ungescalete Zeit, damit es auch bei Time.timeScale = 0 (Death-Screen) laeuft
+            t += Time.unscaledDeltaTime;
+            float p = t / dauer;
+            // Hoch und wieder zurueck (Sinus-Bogen)
+            float s = 1f + (punchSkala - 1f) * Mathf.Sin(p * Mathf.PI);
+            label.transform.scale = new Vector3(s, s, 1f);
+            yield return null;
+        }
+
+        label.transform.scale = Vector3.one;
+        punchCoroutine = null;
+    }
+
     private void NeuStarten()
     {
         Debug.Log("UIManager: 'Neu starten' geklickt – versuche Szene neu zu laden.");
-
-        // WICHTIG: Zeit zuruecksetzen, sonst startet die neue Szene pausiert.
         Time.timeScale = 1f;
 
         Scene aktiv = SceneManager.GetActiveScene();
-
-        // Haeufigste Fehlerquelle: Szene ist nicht in den Build Settings.
         if (aktiv.buildIndex < 0)
         {
             Debug.LogError("UIManager: Die aktive Szene ist NICHT in den Build Settings eingetragen! " +
