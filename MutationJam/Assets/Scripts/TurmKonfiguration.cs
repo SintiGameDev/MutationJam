@@ -20,10 +20,24 @@ public class TurmKonfiguration : ScriptableObject
 
     [Header("Kampfwerte (Basis = Stufe 1)")]
     public float reichweite = 5f;
+
+    [Tooltip("Frequenz-Faktor (1 = Basistempo). Hoehere Werte = schnelleres Feuern. " +
+             "Skaliert mit der Mutationsstufe und verkuerzt Burst-Takt UND Pause.")]
     public float schussrate = 1f;
 
     [Tooltip("Schaden pro Projektil bei Stufe 1. Wird auf das gespawnte Projektil geschrieben.")]
     public float schaden = 10f;
+
+    [Header("Burst-Feuer")]
+    [Tooltip("Wie viele Schuesse eine Salve abgibt.")]
+    public int schuessProBurst = 3;
+
+    [Tooltip("Abstand zwischen den Schuessen INNERHALB einer Salve (Sekunden). " +
+             "Klein halten fuer schnelles Stakkato, z.B. 0.1.")]
+    public float taktImBurst = 0.1f;
+
+    [Tooltip("Pause zwischen zwei Salven (Sekunden). Die lange Erholung nach einer Salve.")]
+    public float pauseZwischenBursts = 1.5f;
 
     [Header("Projektil")]
     [Tooltip("Wird direkt auf Tower.projectilePrefab gesetzt. " +
@@ -59,16 +73,32 @@ public class TurmKonfiguration : ScriptableObject
         public float reichweite;
         public float schussrate;
         public float schaden;
+
+        // Burst: Anzahl bleibt fix, die beiden Zeiten sind bereits stufen-skaliert
+        // (durch den Frequenz-Faktor geteilt -> hoehere Stufe = schneller).
+        public int   schuessProBurst;
+        public float taktImBurst;
+        public float pauseZwischenBursts;
     }
 
     // Liefert die fertigen Werte fuer eine Mutationsstufe (1 = Basis, kein Bonus).
     public SkalierteWerte BerechneWerte(int stufe)
     {
+        float frequenzFaktor = schussrateSkaliert ? Skaliere(schussrate, stufe) : schussrate;
+
+        // Frequenz-Faktor verkuerzt die Zeitabstaende. >1 = schneller, daher dividieren.
+        // Untergrenze, damit nichts auf 0 faellt.
+        float teiler = Mathf.Max(0.0001f, frequenzFaktor);
+
         return new SkalierteWerte
         {
             reichweite = reichweiteSkaliert ? Skaliere(reichweite, stufe) : reichweite,
-            schussrate = schussrateSkaliert ? Skaliere(schussrate, stufe) : schussrate,
-            schaden = schadenSkaliert ? Skaliere(schaden, stufe) : schaden
+            schussrate = frequenzFaktor,
+            schaden    = schadenSkaliert ? Skaliere(schaden, stufe) : schaden,
+
+            schuessProBurst     = Mathf.Max(1, schuessProBurst),
+            taktImBurst         = taktImBurst         / teiler,
+            pauseZwischenBursts = pauseZwischenBursts / teiler
         };
     }
 

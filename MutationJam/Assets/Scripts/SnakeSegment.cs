@@ -192,8 +192,12 @@ public class SnakeSegment : MonoBehaviour
         TurmKonfiguration.SkalierteWerte werte = config.BerechneWerte(Mutationsstufe);
 
         AktuellerTurm.range    = werte.reichweite;
-        AktuellerTurm.fireRate = werte.schussrate;
         AktuellerTurm.schaden  = werte.schaden;
+
+        // Burst-Werte (bereits stufen-skaliert) uebernehmen
+        AktuellerTurm.schuessProBurst      = werte.schuessProBurst;
+        AktuellerTurm.taktImBurst          = werte.taktImBurst;
+        AktuellerTurm.pauseZwischenBursts  = werte.pauseZwischenBursts;
 
         // Schuss-Sound aus der Konfiguration uebernehmen
         AktuellerTurm.schussSound       = config.schussSound;

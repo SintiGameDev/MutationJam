@@ -4,7 +4,14 @@ public class Tower : MonoBehaviour
 {
     [Header("Turm-Werte")]
     public float range = 5f;        // Reichweite des Turms
-    public float fireRate = 1f;     // Schuesse pro Sekunde
+
+    [Header("Burst-Feuer")]
+    [Tooltip("Schuesse pro Salve. Wird vom Segment aus der TurmKonfiguration gesetzt.")]
+    public int schuessProBurst = 3;
+    [Tooltip("Abstand zwischen Schuessen INNERHALB einer Salve (Sek).")]
+    public float taktImBurst = 0.1f;
+    [Tooltip("Pause zwischen zwei Salven (Sek).")]
+    public float pauseZwischenBursts = 1.5f;
 
     [Tooltip("Schaden pro Projektil. Wird vom Segment je nach Mutationsstufe gesetzt " +
              "und beim Schuss auf das Projektil geschrieben.")]
@@ -15,7 +22,9 @@ public class Tower : MonoBehaviour
     public AudioClip schussSound;
     [Range(0f, 1f)] public float schussLautstaerke = 1f;
 
-    private float fireCountdown = 0f;
+    // Burst-Zustand
+    private int   schussImBurst = 0;     // wie viele Schuesse der aktuellen Salve schon raus sind
+    private float naechsterSchuss = 0f;  // Zeitpunkt (Time.time), ab dem wieder gefeuert werden darf
 
     [Header("Unity Setup")]
     public string enemyTag = "Enemy";
@@ -79,16 +88,31 @@ public class Tower : MonoBehaviour
     void Update()
     {
         if (target == null)
-            return;
-
-        // Cooldown-System fuer die Schussrate
-        if (fireCountdown <= 0f)
         {
-            Shoot();
-            fireCountdown = 1f / fireRate;
+            // Ohne Ziel: laufende Salve abbrechen, naechste startet frisch beim
+            // naechsten Ziel (kein Mid-Burst-Rest, der sich seltsam anfuehlt).
+            schussImBurst = 0;
+            return;
         }
 
-        fireCountdown -= Time.deltaTime;
+        if (Time.time < naechsterSchuss)
+            return;
+
+        // Ein Schuss der aktuellen Salve
+        Shoot();
+        schussImBurst++;
+
+        if (schussImBurst >= Mathf.Max(1, schuessProBurst))
+        {
+            // Salve fertig -> lange Pause, dann neue Salve
+            schussImBurst = 0;
+            naechsterSchuss = Time.time + pauseZwischenBursts;
+        }
+        else
+        {
+            // Naechster Schuss innerhalb der Salve -> kurzer Takt
+            naechsterSchuss = Time.time + taktImBurst;
+        }
     }
 
     // Ausrichtung NACH der Segment-Bewegung (LeanTween laeuft im Update),
