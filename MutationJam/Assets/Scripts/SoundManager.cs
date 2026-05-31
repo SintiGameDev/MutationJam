@@ -65,4 +65,11 @@ public class SoundManager : MonoBehaviour
 
         quelle.PlayOneShot(clip, lautstaerke);
     }
+
+    // Generisch: spielt einen beliebigen Clip (z.B. den Schuss-Sound aus der
+    // TurmKonfiguration). Mit eigener Pitch-Variation pro Aufruf.
+    public void SpieleClip(AudioClip clip, float lautstaerke = 1f)
+    {
+        Spiele(clip, lautstaerke);
+    }
 }

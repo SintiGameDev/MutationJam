@@ -5,134 +5,72 @@ public class SnakeSegment : MonoBehaviour
 {
     [Header("Gesundheit")]
     public float maxHealth = 3f;
-    [Tooltip("Zusaetzliches Leben pro Mutationsstufe ueber Stufe 1. " +
-             "Stufe 1 = maxHealth, Stufe 2 = maxHealth + 1x dieser Wert, usw.")]
-    public float lebenProMutationsstufe = 2f;
 
-    [Header("Schadens-Blitz")]
-    [Tooltip("Farbe des Aufblitzens. Fuer ein STAERKERES Leuchten im Farbwaehler den " +
-             "HDR-Intensitaetsregler ueber 1 ziehen (wirkt mit Bloom/Post-Processing).")]
-    [ColorUsage(true, true)]
-    public Color blitzFarbe = Color.white;
-    [Tooltip("Kuerzeste Aufleucht-Dauer (bei vollem Leben). Klein = schneller/knackiger.")]
-    public float minBlitzDauer = 0.04f;
-    [Tooltip("Laengste Aufleucht-Dauer (bei wenig Leben). Wird auf 0,5 s gedeckelt.")]
-    public float maxBlitzDauer = 0.18f;
+    public Nahrungstyp Typ          { get; private set; }
+    public Tower AktuellerTurm      { get; private set; }
+    public float AktuelleHealth     { get; private set; }
 
-    public Nahrungstyp Typ { get; private set; }
-    public Tower AktuellerTurm { get; private set; }
-    public float AktuelleHealth { get; private set; }
+    // Mutationsstufe dieses Segments (1 = frisch gefressen, kein Bonus).
+    // Hoehere Stufen skalieren die Turmwerte ueber TurmKonfiguration.BerechneWerte().
+    public int Mutationsstufe       { get; private set; } = 1;
 
-    private float effektiveMaxHealth;
-
-    public int Mutationsstufe { get; private set; } = 1;
-
+    // Wird von Snake.Grow() gesetzt, bevor SetzeTyp() aufgerufen wird.
     public GameObject StandardTurmPrefab { private get; set; }
 
+    // Stufen-Anzeige-Konfiguration (ebenfalls von Snake.Grow() vorab gesetzt).
     public GameObject StufenAnzeigePrefab { private get; set; }
-    public Vector3 StufenAnzeigeOffset { private get; set; }
-    public int AnzeigeAbStufe { private get; set; } = 2;
-    public Canvas StufenAnzeigeCanvas { private get; set; }
+    public Vector3    StufenAnzeigeOffset { private get; set; }
+    public int        AnzeigeAbStufe      { private get; set; } = 2;
+    public Canvas     StufenAnzeigeCanvas { private get; set; }   // Screen Space - Overlay
 
+    // Snake lauscht hierauf, um das Segment aus der Liste zu entfernen
     public event System.Action<SnakeSegment> OnSegmentGestorben;
 
-    // Beide Renderer-Typen unterstuetzen: 2D-Sprite UND 3D-Mesh.
     private SpriteRenderer spriteRenderer;
-    private MeshRenderer meshRenderer;
-    private Color grundFarbeSprite = Color.white;
-    private Color grundFarbeMesh = Color.white;
-
     private bool istAmSterben = false;
     private StufenAnzeige stufenAnzeige;
-    private Coroutine blitzCoroutine;
 
     private void Awake()
     {
-        ErmittleRenderer();
-
-        effektiveMaxHealth = maxHealth;
-        AktuelleHealth = effektiveMaxHealth;
-    }
-
-    // Sucht Sprite- und/oder Mesh-Renderer (eigenes Objekt oder Kind) und merkt
-    // sich deren aktuelle Grundfarbe.
-    private void ErmittleRenderer()
-    {
         spriteRenderer = GetComponent<SpriteRenderer>();
-        if (spriteRenderer == null)
-        {
-            spriteRenderer = GetComponentInChildren<SpriteRenderer>(true);
-        }
-        if (spriteRenderer != null)
-        {
-            grundFarbeSprite = spriteRenderer.color;
-        }
-
-        meshRenderer = GetComponent<MeshRenderer>();
-        if (meshRenderer == null)
-        {
-            meshRenderer = GetComponentInChildren<MeshRenderer>(true);
-        }
-        if (meshRenderer != null && meshRenderer.material != null)
-        {
-            grundFarbeMesh = meshRenderer.material.color;
-        }
+        AktuelleHealth = maxHealth;
     }
 
+    // stufe optional: alte Aufrufe (SetzeTyp(typ)) bleiben gueltig und liefern Stufe 1.
     public void SetzeTyp(Nahrungstyp typ, int stufe = 1)
     {
-        Typ = typ;
+        Typ            = typ;
         Mutationsstufe = Mathf.Max(1, stufe);
 
-        effektiveMaxHealth = BerechneMaxHealth();
-        AktuelleHealth = effektiveMaxHealth;
-
+        // Start-Segmente (typlos) bekommen WEDER Turm NOCH Stufenanzeige.
+        // Nur vom Spieler eingesammelte / mutierte Segmente (mit Typ) werden bestueckt.
         if (typ == null) return;
 
         AktualisiereStufenAnzeige();
 
-        // 2D-Sprite faerben (Renderer kann am Kind haengen)
+        // 2D-Sprite faerben – auch wenn der SpriteRenderer-Child inaktiv ist
         SpriteRenderer sr = GetComponentInChildren<SpriteRenderer>(true);
-        if (sr != null)
-        {
-            sr.color = typ.farbe;
-            spriteRenderer = sr;
-            grundFarbeSprite = typ.farbe;
-        }
+        if (sr != null) sr.color = typ.farbe;
 
-        // 3D-Mesh: Material setzen und dessen Farbe als Grundfarbe merken
+        // 3D-Sphere: Material des ersten MeshRenderer-Child setzen
         if (typ.material != null)
         {
             MeshRenderer mr = GetComponentInChildren<MeshRenderer>(true);
-            if (mr != null)
-            {
-                mr.material = typ.material;
-                meshRenderer = mr;
-                grundFarbeMesh = mr.material.color;
-            }
+            if (mr != null) mr.material = typ.material;
         }
 
         SpawneTurm(typ);
     }
 
-    private float BerechneMaxHealth()
-    {
-        return maxHealth + lebenProMutationsstufe * (Mutationsstufe - 1);
-    }
-
+    // Wird vom Gegner bei Kollision aufgerufen
     public void NimmSchaden(float schaden)
     {
         if (istAmSterben) return;
 
         AktuelleHealth -= schaden;
 
-        // Vorherigen Blitz stoppen und Grundfarbe wiederherstellen
-        if (blitzCoroutine != null)
-        {
-            StopCoroutine(blitzCoroutine);
-            SetzeFarbe(false);
-        }
-        blitzCoroutine = StartCoroutine(SchadensBlitz());
+        // Kurzes Aufblinken als visuelles Feedback
+        StartCoroutine(SchadensBlitz());
 
         if (AktuelleHealth <= 0f)
         {
@@ -142,44 +80,26 @@ public class SnakeSegment : MonoBehaviour
 
     private IEnumerator SchadensBlitz()
     {
-        float dauer = BerechneBlitzDauer();
+        if (spriteRenderer == null) yield break;
 
-        SetzeFarbe(true);   // weiss
-        yield return new WaitForSeconds(dauer);
-        SetzeFarbe(false);  // zurueck auf Grundfarbe
-        blitzCoroutine = null;
-    }
-
-    // Faerbt beide Renderer (falls vorhanden) auf die Blitzfarbe bzw. zurueck auf Grundfarbe.
-    private void SetzeFarbe(bool blitz)
-    {
-        if (spriteRenderer != null)
-        {
-            spriteRenderer.color = blitz ? blitzFarbe : grundFarbeSprite;
+        Color original = spriteRenderer.color;
+        spriteRenderer.color = Color.white;
+        yield return new WaitForSeconds(0.08f);
+        if (spriteRenderer != null) {
+            spriteRenderer.color = original;
         }
-        if (meshRenderer != null && meshRenderer.material != null)
-        {
-            meshRenderer.material.color = blitz ? blitzFarbe : grundFarbeMesh;
-        }
-    }
-
-    private float BerechneBlitzDauer()
-    {
-        float max = Mathf.Max(0.0001f, effektiveMaxHealth);
-        float ratio = Mathf.Clamp01(AktuelleHealth / max);
-        float dauer = Mathf.Lerp(minBlitzDauer, maxBlitzDauer, 1f - ratio);
-        return Mathf.Min(dauer, 0.5f);
     }
 
     private void Stirb()
     {
         istAmSterben = true;
 
-        if (AktuellerTurm != null)
-        {
+        // Turm sofort deaktivieren damit er nicht mehr schiesst
+        if (AktuellerTurm != null) {
             AktuellerTurm.enabled = false;
         }
 
+        // Snake Bescheid geben → entfernt das Segment aus der Liste
         OnSegmentGestorben?.Invoke(this);
 
         StartCoroutine(PopOutUndZerstoere());
@@ -187,7 +107,7 @@ public class SnakeSegment : MonoBehaviour
 
     private IEnumerator PopOutUndZerstoere()
     {
-        float dauer = 0.2f;
+        float dauer   = 0.2f;
         float elapsed = 0f;
         Vector3 start = transform.localScale;
 
@@ -202,10 +122,13 @@ public class SnakeSegment : MonoBehaviour
         Destroy(gameObject);
     }
 
+    // Erzeugt das Stufen-Badge (oder aktualisiert die Zahl). Erscheint erst ab
+    // AnzeigeAbStufe, damit Stufe-1-Segmente nicht zugekleistert werden.
     private void AktualisiereStufenAnzeige()
     {
         if (StufenAnzeigePrefab == null) return;
 
+        // Unter der Schwelle: keine Anzeige (falls doch eine existiert, entfernen).
         if (Mutationsstufe < AnzeigeAbStufe)
         {
             if (stufenAnzeige != null) Destroy(stufenAnzeige.gameObject);
@@ -214,6 +137,7 @@ public class SnakeSegment : MonoBehaviour
 
         if (stufenAnzeige == null)
         {
+            // Unter dem Overlay-Canvas instanziieren, damit das UI-Badge rendert.
             Transform parent = StufenAnzeigeCanvas != null ? StufenAnzeigeCanvas.transform : null;
             GameObject go = Instantiate(StufenAnzeigePrefab, parent);
 
@@ -230,7 +154,7 @@ public class SnakeSegment : MonoBehaviour
 
     private void SpawneTurm(Nahrungstyp typ)
     {
-        TurmKonfiguration config = typ?.turmKonfiguration;
+        TurmKonfiguration config   = typ?.turmKonfiguration;
         GameObject prefabZuSpawnen = (config != null) ? config.turmPrefab : StandardTurmPrefab;
 
         if (prefabZuSpawnen == null) return;
@@ -245,8 +169,7 @@ public class SnakeSegment : MonoBehaviour
 
     public void AktualisiereTurm(TurmKonfiguration neueKonfig)
     {
-        if (AktuellerTurm != null)
-        {
+        if (AktuellerTurm != null) {
             Destroy(AktuellerTurm.gameObject);
             AktuellerTurm = null;
         }
@@ -261,18 +184,22 @@ public class SnakeSegment : MonoBehaviour
         WendeKonfigAn(neueKonfig);
     }
 
+    // Schreibt die – je nach Mutationsstufe skalierten – Werte auf den aktuellen Turm.
     private void WendeKonfigAn(TurmKonfiguration config)
     {
         if (AktuellerTurm == null || config == null) return;
 
         TurmKonfiguration.SkalierteWerte werte = config.BerechneWerte(Mutationsstufe);
 
-        AktuellerTurm.range = werte.reichweite;
+        AktuellerTurm.range    = werte.reichweite;
         AktuellerTurm.fireRate = werte.schussrate;
-        AktuellerTurm.schaden = werte.schaden;
+        AktuellerTurm.schaden  = werte.schaden;
 
-        if (config.projektilPrefab != null)
-        {
+        // Schuss-Sound aus der Konfiguration uebernehmen
+        AktuellerTurm.schussSound       = config.schussSound;
+        AktuellerTurm.schussLautstaerke = config.schussLautstaerke;
+
+        if (config.projektilPrefab != null) {
             AktuellerTurm.projectilePrefab = config.projektilPrefab;
         }
     }

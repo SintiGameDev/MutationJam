@@ -10,13 +10,18 @@ public class Tower : MonoBehaviour
              "und beim Schuss auf das Projektil geschrieben.")]
     public float schaden = 10f;
 
+    [Tooltip("Schuss-Sound. Wird vom Segment aus der TurmKonfiguration gesetzt. " +
+             "Spielt einmal pro Schuss (nicht pro Feuerpunkt).")]
+    public AudioClip schussSound;
+    [Range(0f, 1f)] public float schussLautstaerke = 1f;
+
     private float fireCountdown = 0f;
 
     [Header("Unity Setup")]
     public string enemyTag = "Enemy";
 
     [Tooltip("Einzelner Feuerpunkt (Fallback). Wird nur benutzt, wenn 'Fire Points' " +
-             "leer ist – so bleiben bestehende Prefabs ohne Aenderung lauffaehig.")]
+             "leer ist â€“ so bleiben bestehende Prefabs ohne Aenderung lauffaehig.")]
     public Transform firePoint;
 
     [Tooltip("Mehrere Feuerpunkte. Bei einem Schuss feuern ALLE gleichzeitig auf das " +
@@ -120,12 +125,34 @@ public class Tower : MonoBehaviour
 
     void Shoot()
     {
-        // Erstelle das Projektil am firePoint
-        GameObject projectileGO = Instantiate(projectilePrefab, firePoint.position, firePoint.rotation);
+        // Schuss-Sound EINMAL pro Schuss (nicht pro Feuerpunkt), damit eine
+        // Salve aus mehreren Firepoints nicht mehrfach gleichzeitig knallt.
+        if (schussSound != null)
+            SoundManager.Instance?.SpieleClip(schussSound, schussLautstaerke);
 
-        // Hole das Projectiles-Skript vom erstellten Objekt
+        // Alle aktiven Feuerpunkte ermitteln. Liste hat Vorrang; ist sie leer,
+        // faellt es auf den einzelnen firePoint zurueck.
+        if (firePoints != null && firePoints.Length > 0)
+        {
+            foreach (Transform fp in firePoints)
+            {
+                if (fp != null) FeuereVon(fp);
+            }
+        }
+        else if (firePoint != null)
+        {
+            FeuereVon(firePoint);
+        }
+    }
+
+    // Spawnt EIN Projektil an einem Feuerpunkt und schickt es auf das Ziel.
+    private void FeuereVon(Transform fp)
+    {
+        if (projectilePrefab == null) return;
+
+        GameObject projectileGO = Instantiate(projectilePrefab, fp.position, fp.rotation);
+
         Projectiles projectile = projectileGO.GetComponent<Projectiles>();
-
         if (projectile != null)
         {
             // Schaden des Turms (ggf. durch Mutationsstufe skaliert) ans Projektil weitergeben

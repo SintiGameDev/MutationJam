@@ -30,6 +30,14 @@ public class TurmKonfiguration : ScriptableObject
              "Leer lassen = Prefab-Standardwert des Tower-Prefabs wird benutzt.")]
     public GameObject projektilPrefab;
 
+    [Header("Sound")]
+    [Tooltip("Schuss-Sound dieses Turmtyps. Wird einmal pro Schuss abgespielt " +
+             "(nicht pro Feuerpunkt). Leer lassen = kein Sound.")]
+    public AudioClip schussSound;
+    [Range(0f, 1f)]
+    [Tooltip("Lautstaerke des Schuss-Sounds.")]
+    public float schussLautstaerke = 1f;
+
     [Header("Mutationsstufen-Skalierung")]
     [Tooltip("Welche Formel die Werte pro Mutationsstufe hochrechnet.")]
     public Skalierungsmodus skalierungsModus = Skalierungsmodus.Linear;
