@@ -5,6 +5,10 @@ public class EnemyFollow2D : MonoBehaviour
     [Header("Bewegungseinstellungen")]
     public float speed = 3f;
 
+    [Header("Kampf")]
+    [Tooltip("Schaden, den der Gegner pro Anrempeln an ein Segment macht.")]
+    public float schadenAnSegment = 1f;
+
     [Header("Rueckstoss")]
     [Tooltip("Wie weit (in Einheiten) der Gegner beim Treffer zurueckgeschoben wird.")]
     public float rueckstossDistanz = 1.5f;
@@ -25,13 +29,13 @@ public class EnemyFollow2D : MonoBehaviour
 
     void Update()
     {
-        // Zerstoerte (null) Eintraege entfernen – z.B. durch Matches geloeschte Segmente
+        // Zerstoerte (null) Eintraege entfernen – z.B. durch Matches/Tod geloeschte Segmente
         ueberlappendeSegmente.RemoveAll(s => s == null);
 
         switch (zustand)
         {
             case Zustand.Frei:
-                // Ueberlappt der Gegner ein Segment? -> Rueckstoss ausloesen
+                // Ueberlappt der Gegner ein Segment? -> Schaden + Rueckstoss ausloesen
                 if (ueberlappendeSegmente.Count > 0)
                 {
                     StarteRueckstoss();
@@ -43,21 +47,18 @@ public class EnemyFollow2D : MonoBehaviour
                 break;
 
             case Zustand.Rueckstoss:
-                // Mit konstanter Geschwindigkeit wegschieben (Distanz / Dauer)
                 float geschw = rueckstossDistanz / Mathf.Max(0.0001f, rueckstossDauer);
                 transform.position += (Vector3)(rueckstossRichtung * geschw * Time.deltaTime);
 
                 timer -= Time.deltaTime;
                 if (timer <= 0f)
                 {
-                    // Danach kurz betaeubt stehen bleiben
                     zustand = Zustand.Stun;
                     timer = stunDauer;
                 }
                 break;
 
             case Zustand.Stun:
-                // Stillstand: weder bewegen noch suchen
                 timer -= Time.deltaTime;
                 if (timer <= 0f)
                 {
@@ -67,10 +68,20 @@ public class EnemyFollow2D : MonoBehaviour
         }
     }
 
-    // Loest einen Rueckstoss weg vom naechsten ueberlappenden Segment aus.
+    // Macht Schaden am getroffenen Segment und loest dann den Rueckstoss aus.
     private void StarteRueckstoss()
     {
         Transform naechstes = NaechstesUeberlapptesSegment();
+
+        // Schaden zufuegen (einmal pro Anrempeln)
+        if (naechstes != null)
+        {
+            SnakeSegment segment = naechstes.GetComponent<SnakeSegment>();
+            if (segment != null)
+            {
+                segment.NimmSchaden(schadenAnSegment);
+            }
+        }
 
         Vector2 richtung = (naechstes != null)
             ? (Vector2)transform.position - (Vector2)naechstes.position
@@ -85,7 +96,6 @@ public class EnemyFollow2D : MonoBehaviour
         timer = rueckstossDauer;
     }
 
-    // Bewegt den Gegner Richtung Ziel (Spieler bevorzugt, sonst Segment).
     private void BewegeZuZiel()
     {
         Transform ziel = FindeZiel();
@@ -96,7 +106,6 @@ public class EnemyFollow2D : MonoBehaviour
         }
     }
 
-    // Priorisierung: Spieler (Kopf) zuerst, sonst naechstes SnakeSegment.
     private Transform FindeZiel()
     {
         GameObject player = GameObject.FindGameObjectWithTag("Player");
@@ -107,7 +116,6 @@ public class EnemyFollow2D : MonoBehaviour
         return FindeNaechstesSegment();
     }
 
-    // Sucht das raeumlich naechste SnakeSegment in der Szene.
     private Transform FindeNaechstesSegment()
     {
         SnakeSegment[] segmente = FindObjectsOfType<SnakeSegment>();
@@ -129,7 +137,6 @@ public class EnemyFollow2D : MonoBehaviour
         return naechstes;
     }
 
-    // Naechstes der aktuell ueberlappenden Segmente (fuer die Stoss-Richtung).
     private Transform NaechstesUeberlapptesSegment()
     {
         Transform naechstes = null;
