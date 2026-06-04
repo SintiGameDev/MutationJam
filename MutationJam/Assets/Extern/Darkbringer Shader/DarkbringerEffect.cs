@@ -1,12 +1,13 @@
 ﻿using UnityEngine;
 using System.Collections;
+using UnityEditor;
 
 namespace Picturesque.Darkbringer
 {
     [ExecuteInEditMode]
     public class DarkbringerEffect : MonoBehaviour
     {
-      //  [HideInInspector]
+        //  [HideInInspector]
         public Shader sha;
         //[HideInInspector]
         public Material mat;
@@ -19,8 +20,6 @@ namespace Picturesque.Darkbringer
         public float ColorShift = 0.29f;
         public Vector2 newScreenSize = new Vector2(160, 200);
         public Vector2 screenStretching = new Vector2(2, 1);
-        //[ ]
-       // public Picturesque.Darkbringer.EffectType MyEffectType = EffectType.Full;
 
         public bool CustomScreenSize = true;
         public bool AspectRatioBars = true;
@@ -32,18 +31,31 @@ namespace Picturesque.Darkbringer
         public bool Dithering = true;
         public bool Paletting = true;
 
+        /// <summary>
+        /// Gesamtintensität des Darkbringer-Effekts.
+        /// 0 = vollständig Original-Bild, 1 = vollständiger Shader-Effekt.
+        /// </summary>
+        [Range(0f, 1f)]
+        public float Intensity = 1f;
+
         private Texture3D vTex;
         private Texture2D v2DTex;
         public bool clearNextUpdate;
+
+        // Blend-Material (einfacher Lerp zwischen zwei Texturen)
+        private Material blendMat;
+        private Shader blendShader;
 
         void Awake()
         {
             if (sha != null)
             {
-                
                 mat = new Material(sha);
                 mat.SetTexture("_BayerTex", bayerTexture);
             }
+
+            // Internes Blend-Material erstellen
+            CreateBlendMaterial();
         }
 
         void OnDisable()
@@ -52,6 +64,56 @@ namespace Picturesque.Darkbringer
             {
                 DestroyImmediate(mat);
                 mat = null;
+            }
+            if (blendMat)
+            {
+                DestroyImmediate(blendMat);
+                blendMat = null;
+            }
+        }
+
+        // Erstellt ein einfaches Material zum Überblenden zweier Texturen
+        private void CreateBlendMaterial()
+        {
+            // Wir nutzen den eingebauten Unity-Blit-Shader mit Alpha-Steuerung
+            // als Fallback verwenden wir einen eigenen Inline-Shader
+            string blendShaderSource = @"
+                Shader ""Hidden/DarkbringerBlend""
+                {
+                    Properties
+                    {
+                        _MainTex (""Texture"", 2D) = ""white"" {}
+                        _OverlayTex (""Overlay"", 2D) = ""white"" {}
+                        _Blend (""Blend"", Float) = 1.0
+                    }
+                    SubShader
+                    {
+                        Pass
+                        {
+                            ZTest Always Cull Off ZWrite Off
+                            CGPROGRAM
+                            #pragma vertex vert_img
+                            #pragma fragment frag
+                            #include ""UnityCG.cginc""
+                            sampler2D _MainTex;
+                            sampler2D _OverlayTex;
+                            float _Blend;
+                            fixed4 frag(v2f_img i) : SV_Target
+                            {
+                                fixed4 original = tex2D(_MainTex, i.uv);
+                                fixed4 processed = tex2D(_OverlayTex, i.uv);
+                                return lerp(original, processed, _Blend);
+                            }
+                            ENDCG
+                        }
+                    }
+                }
+            ";
+
+            blendShader = ShaderUtil.CreateShaderAsset(blendShaderSource);
+            if (blendShader != null)
+            {
+                blendMat = new Material(blendShader);
             }
         }
 
@@ -64,16 +126,19 @@ namespace Picturesque.Darkbringer
                 return;
             }
 
+            // Bei Intensity = 0 direkt das Original durchreichen
+            if (Intensity <= 0f)
+            {
+                Graphics.Blit(source, destination);
+                return;
+            }
+
             if (mat == null)
             {
                 mat = new Material(sha);
             }
 
-
-
             if (clearNextUpdate || v2DTex == null || mat.GetTexture("_Lut2D") == null || ((mat.GetTexture("_Lut2D") != null) && flatLut.name != mat.GetTexture("_Lut2D").name))
-
-            //if (clearNextUpdate || vTex == null || mat.GetTexture("_Lut") == null || ((mat.GetTexture("_Lut") != null) && flatLut.name != mat.GetTexture("_Lut").name))
             {
                 if (v2DTex != null || clearNextUpdate)
                 {
@@ -85,7 +150,6 @@ namespace Picturesque.Darkbringer
                 v2DTex = new Texture2D(dim * dim, dim * dim, TextureFormat.ARGB32, false);
                 v2DTex.filterMode = FilterMode.Point;
                 v2DTex.name = flatLut.name;
-
 
                 Color[] c = flatLut.GetPixels();
                 Color[] newC = new Color[dim * dim * dim * dim];
@@ -109,51 +173,22 @@ namespace Picturesque.Darkbringer
                                 Color col2 = c[index + bi1 * dim];
 
                                 newC[x + i * dim + y * dim * dim + j * dim * dim * dim] = (f < 0.5f) ? col1 : col2;
-                                    //Color.Lerp(col1, col2, f);
                             }
                         }
                     }
                 }
 
-                /*
-                clearNextUpdate = false;
-                vTex = new Texture3D(16, 16, 16, TextureFormat.ARGB32, false);
-                vTex.filterMode = FilterMode.Point;
-                vTex.name = flatLut.name;
-                int dim = 16;
-                var c = flatLut.GetPixels();
-                var newC = new Color[c.Length];
-
-                for (int i = 0; i < dim; i++)
-                {
-                    for (int j = 0; j < dim; j++)
-                    {
-                        for (int k = 0; k < dim; k++)
-                        {
-                            int j_ = dim - j - 1;
-                            newC[i + (j * dim) + (k * dim * dim)] = c[k * dim + i + j_ * dim * dim];
-                        }
-                    }
-                }
-                vTex.SetPixels(newC);
-                vTex.Apply();*/
                 v2DTex.wrapMode = TextureWrapMode.Clamp;
                 v2DTex.SetPixels(newC);
                 v2DTex.Apply();
                 mat.SetTexture("_Lut2D", v2DTex);
-
-                //Debug.Log("new tex set");
-                //Debug.Log(v2DTex.width);
             }
 
-            //float lutSize = 256;//v2DTex.width;
-            float lutSquare = 16; //Mathf.Sqrt(lutSize);
-             
-            //converted2DLut.wrapMode = TextureWrapMode.Clamp;
-            mat.SetFloat("_ScaleRG", 0.05859375f);//(lutSquare - 1f) / lutSize);
+            float lutSquare = 16;
+
+            mat.SetFloat("_ScaleRG", 0.05859375f);
             mat.SetFloat("_Dim", lutSquare);
-            mat.SetFloat("_Offset", 0.001953125f);//1f / (2f * lutSize));
-            //mat.SetTexture("_LutTex", converted2DLut);
+            mat.SetFloat("_Offset", 0.001953125f);
 
             mat.SetTexture("_Lut2d", v2DTex);
             mat.SetFloat("_HORLINES", (HorizontalLines) ? 1 : 0);
@@ -170,16 +205,39 @@ namespace Picturesque.Darkbringer
             mat.SetVector("_ScreenSize", new Vector4(newScreenSize.x, newScreenSize.y, 0, 0));
             mat.SetVector("_Stretching", new Vector4(screenStretching.x, screenStretching.y, 0, 0));
 
+            // Bei Intensity = 1 direkt rendern (kein Blend-Overhead)
+            if (Intensity >= 1f)
+            {
+                Graphics.Blit(source, destination, mat);
+                return;
+            }
 
+            // Zwischenpuffer: Shader-Ergebnis in temporäre Textur rendern
+            RenderTexture temp = RenderTexture.GetTemporary(source.descriptor);
+            Graphics.Blit(source, temp, mat);
 
-            Graphics.Blit(source, destination, mat);
+            // Blend: Original (source) + Shader-Output (temp) → destination
+            if (blendMat != null)
+            {
+                blendMat.SetTexture("_MainTex", source);
+                blendMat.SetTexture("_OverlayTex", temp);
+                blendMat.SetFloat("_Blend", Intensity);
+                Graphics.Blit(source, destination, blendMat);
+            }
+            else
+            {
+                // Fallback falls Blend-Shader nicht kompiliert werden konnte
+                Graphics.Blit(temp, destination);
+            }
+
+            RenderTexture.ReleaseTemporary(temp);
         }
     }
-   /* public enum EffectType
-    {
-        None,
-        OneBit,
-        DitheringOnly,
-        Full
-    }*/
+    /* public enum EffectType
+     {
+         None,
+         OneBit,
+         DitheringOnly,
+         Full
+     }*/
 }
