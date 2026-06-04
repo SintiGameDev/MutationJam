@@ -359,6 +359,11 @@ public class Tower : MonoBehaviour
             // Schaden des Turms (ggf. durch Mutationsstufe skaliert) ans Projektil weitergeben
             projectile.damage = schaden;
 
+            // 2.5D: Projektil auf die Tiefen-Ebene des anvisierten Punkts (Gegner)
+            // legen, damit ein z-Versatz des Feuerpunkts nicht zu einem Vorbeischuss
+            // fuehrt. Welche Achse "Tiefe" ist, steht am Projektil-Prefab.
+            projectile.SetzeTiefeAusWeltpunkt(vorhalt);
+
             // Gerade Richtung zum vorgehaltenen Abfangpunkt (vom firePoint aus).
             Vector3 richtung = vorhalt - fp.position;
             projectile.SchiesseInRichtung(richtung);

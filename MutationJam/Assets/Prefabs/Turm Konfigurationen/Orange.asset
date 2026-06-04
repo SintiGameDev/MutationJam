@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   turmPrefab: {fileID: 341460832292589893, guid: b238c426eb7685e48b42c0d4d94cd85c,
     type: 3}
-  reichweite: 15
+  reichweite: 4
   schussrate: 1
   schaden: 5
   schuessProBurst: 3

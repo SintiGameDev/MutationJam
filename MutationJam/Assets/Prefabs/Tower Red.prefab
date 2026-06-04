@@ -25,7 +25,7 @@ Transform:
   m_GameObject: {fileID: 50817761661067401}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0.622, y: 0.17, z: -0.561}
+  m_LocalPosition: {x: 0.622, y: 0.17, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -42,6 +42,7 @@ GameObject:
   - component: {fileID: 6411153169123646252}
   - component: {fileID: 147433165425518803}
   - component: {fileID: 5964431535157182190}
+  - component: {fileID: -5606622038711823127}
   m_Layer: 0
   m_Name: Tower Red
   m_TagString: Obstacle
@@ -148,8 +149,36 @@ MonoBehaviour:
   - {fileID: 600515361365945437}
   projectilePrefab: {fileID: 5451908957895355184, guid: 4d5cdb69596782b4bbb0372aec6463ce,
     type: 3}
+  zielSuchIntervall: 0
   blickrichtungOffset: 0
   drehGeschwindigkeit: 720
+--- !u!50 &-5606622038711823127
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 341460832292589893}
+  m_BodyType: 1
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 1
+  m_Constraints: 0
 --- !u!1 &7023783014256070336
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,0 +1,15 @@
+fileFormatVersion: 2
+guid: 8593a362d8bae2a4a94256104c63cdc5
+timeCreated: 1456619053
+licenseType: Store
+NativeFormatImporter:
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
+AssetOrigin:
+  serializedVersion: 1
+  productId: 57038
+  packageName: Darkbringer Retro shader
+  packageVersion: 1.0
+  assetPath: Assets/Darkbringer Shader/Preview/Materials/G.mat
+  uploadId: 107041
