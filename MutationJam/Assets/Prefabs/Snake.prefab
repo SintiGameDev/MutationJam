@@ -10020,14 +10020,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   spurPrefab: {fileID: 3039834034583035995, guid: 6fa81d9f1c22a4e41b0bd2a1ec5ba4f4,
     type: 3}
-  spurAbstand: 0.477
+  spurAbstand: 0.505
   maxSprites: 38
-  fadeDauer: 2.7
-  vertikalerOffset: {x: 0, y: -0.15, z: -0.2}
-  spurScale: {x: 1.8, y: 1.8, z: 1}
+  fadeDauer: 4.41
+  spawnOffset: {x: 0, y: -0.1, z: 0.1}
+  spurScale: {x: 1.1, y: 1.2, z: 1}
   sortingOrder: -1
   sortingLayerName: Default
-  spurFarbe: {r: 0.11372549, g: 0, b: 0, a: 0.23921569}
+  spurFarbe: {r: 0.8301887, g: 0.7070063, b: 0.6696333, a: 0.57254905}
   rotiereMitRichtung: 1
 --- !u!61 &9217921946625878834
 BoxCollider2D:

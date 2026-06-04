@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1796402379901374424}
   - component: {fileID: 814824025579537120}
   - component: {fileID: 4596767824811911445}
-  m_Layer: 0
+  m_Layer: 4
   m_Name: Particle System
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -4862,7 +4862,7 @@ GameObject:
   - component: {fileID: 6350516520070498416}
   - component: {fileID: 3774129700396842517}
   - component: {fileID: 3790777068142726019}
-  m_Layer: 0
+  m_Layer: 4
   m_Name: Particle System (1)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -9714,7 +9714,7 @@ GameObject:
   - component: {fileID: 1411395476322496813}
   - component: {fileID: 8725391221690051388}
   - component: {fileID: 7410550647276898211}
-  m_Layer: 0
+  m_Layer: 4
   m_Name: Sphere
   m_TagString: Obstacle
   m_Icon: {fileID: 0}
@@ -9823,7 +9823,7 @@ GameObject:
   - component: {fileID: 4726879341727194398}
   - component: {fileID: 4726879341727194399}
   - component: {fileID: 4726879341727194384}
-  m_Layer: 0
+  m_Layer: 4
   m_Name: SnakeSegment
   m_TagString: Obstacle
   m_Icon: {fileID: 0}
@@ -9988,7 +9988,7 @@ GameObject:
   - component: {fileID: 8222359874025076346}
   - component: {fileID: 3882659969704875176}
   - component: {fileID: 8850286787168756407}
-  m_Layer: 0
+  m_Layer: 4
   m_Name: Particle System (2)
   m_TagString: Untagged
   m_Icon: {fileID: 0}
