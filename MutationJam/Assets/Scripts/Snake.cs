@@ -15,6 +15,17 @@ public class Snake : MonoBehaviour
     [Tooltip("Wird an Segmente ohne eigene TurmKonfiguration uebergeben (z.B. Startsegmente)")]
     public GameObject standardTurmPrefab;
 
+    [Header("3D Modell (Meshy)")]
+    [Tooltip("Optionales 3D Modell Prefab, das dem Kopf folgt OHNE dessen Squash/Scale zu erben.")]
+    public GameObject modellPrefab;
+    [Tooltip("Welt Offset des Modells relativ zum Kopf.")]
+    public Vector3 modellPositionsOffset = Vector3.zero;
+    [Tooltip("Rotations Offset, um die Ausrichtung des 3D Modells zur 2D Kopf Rotation zu korrigieren.")]
+    public Vector3 modellRotationsOffset = Vector3.zero;
+    [Tooltip("Uniformer Groessen Multiplikator auf die Prefab Scale des Modells. " +
+             "1 = exakt die Prefab Groesse. Hier groesser/kleiner ziehen statt das Prefab anzufassen.")]
+    public float modellSkalierung = 1f;
+
     [Header("Stufen Anzeige")]
     [Tooltip("Welt Badge (Prefab mit TextMeshPro) das die Mutationsstufe zeigt. Leer lassen = keine Anzeige.")]
     public GameObject stufenAnzeigePrefab;
@@ -58,12 +69,18 @@ public class Snake : MonoBehaviour
 
     public event System.Action OnGestorben;
 
+    // Referenz auf das aktuell aktive 3D Modell (folgt dem Kopf).
+    private ModellFolger aktivesModell;
+
     private void Start()
     {
         foreach (SpriteRenderer sr in GetComponentsInChildren<SpriteRenderer>())
             sr.sortingOrder = 10;
 
         ResetState();
+
+        // 3D Modell (falls gesetzt) bei Spielstart anhaengen.
+        SetzeModell();
     }
 
     private void Update()
@@ -315,6 +332,38 @@ public class Snake : MonoBehaviour
 
         OnGestorben?.Invoke();
         enabled = false;
+    }
+
+    /// <summary>
+    /// Instanziiert das 3D Modell Prefab und laesst es dem Kopf folgen,
+    /// OHNE es zu parenten. Dadurch erbt es weder den Squash/Stretch noch
+    /// eine eventuelle z=0 Scale des Kopfes. Kann zur Laufzeit aufgerufen
+    /// werden; ein vorhandenes Modell wird ersetzt.
+    /// </summary>
+    /// <param name="prefab">Optionales Prefab. Null = das im Inspector gesetzte modellPrefab.</param>
+    public void SetzeModell(GameObject prefab = null)
+    {
+        GameObject zuVerwenden = (prefab != null) ? prefab : modellPrefab;
+        if (zuVerwenden == null) return;
+
+        // Altes Modell sauber entfernen, falls vorhanden.
+        if (aktivesModell != null)
+            Destroy(aktivesModell.gameObject);
+
+        // WICHTIG: NICHT als Child des Kopfes instanziieren.
+        // Als Root-Objekt behaelt das Modell seine eigene saubere Scale.
+        GameObject go = Instantiate(zuVerwenden);
+
+        ModellFolger folger = go.GetComponent<ModellFolger>();
+        if (folger == null) folger = go.AddComponent<ModellFolger>();
+
+        folger.ziel = transform;                  // dem Kopf folgen
+        folger.positionsOffset = modellPositionsOffset;
+        folger.rotationsOffset = modellRotationsOffset;
+        folger.folgtRotation = true;
+        folger.skalierung = modellSkalierung;
+
+        aktivesModell = folger;
     }
 
     public void EntferneSegmente(int startIndex, int anzahl)

@@ -15,6 +15,14 @@ public enum Skalierungsmodus
 [CreateAssetMenu(fileName = "TurmKonfiguration", menuName = "Snake/Turmkonfiguration")]
 public class TurmKonfiguration : ScriptableObject
 {
+    // Harte Untergrenzen fuer die Zeitabstaende. Verhindert, dass eine hohe
+    // 'schussrate' (Frequenz-Faktor) Takt und Pause gegen 0 teilt -> Dauerfeuer.
+    private const float MIN_TAKT  = 0.02f;   // max. 50 Schuss/Sek innerhalb der Salve
+    private const float MIN_PAUSE = 0.05f;
+    // Sinnvolle Obergrenze fuer den Frequenz-Faktor, damit Skalierung nicht
+    // entgleist (sonst dividiert man Takt/Pause durch z.B. 30).
+    private const float MAX_FREQUENZ = 10f;
+
     [Header("Aussehen")]
     public GameObject turmPrefab;
 
@@ -22,7 +30,8 @@ public class TurmKonfiguration : ScriptableObject
     public float reichweite = 5f;
 
     [Tooltip("Frequenz-Faktor (1 = Basistempo). Hoehere Werte = schnelleres Feuern. " +
-             "Skaliert mit der Mutationsstufe und verkuerzt Burst-Takt UND Pause.")]
+             "Skaliert mit der Mutationsstufe und verkuerzt Burst-Takt UND Pause. " +
+             "Wird zur Sicherheit auf 10 begrenzt.")]
     public float schussrate = 1f;
 
     [Tooltip("Schaden pro Projektil bei Stufe 1. Wird auf das gespawnte Projektil geschrieben.")]
@@ -86,9 +95,14 @@ public class TurmKonfiguration : ScriptableObject
     {
         float frequenzFaktor = schussrateSkaliert ? Skaliere(schussrate, stufe) : schussrate;
 
+        // Frequenz-Faktor begrenzen und nach unten absichern, damit nichts auf 0
+        // faellt und die Skalierung nicht entgleist.
+        frequenzFaktor = Mathf.Clamp(frequenzFaktor, 0.0001f, MAX_FREQUENZ);
+
         // Frequenz-Faktor verkuerzt die Zeitabstaende. >1 = schneller, daher dividieren.
-        // Untergrenze, damit nichts auf 0 faellt.
-        float teiler = Mathf.Max(0.0001f, frequenzFaktor);
+        // Anschliessend auf die harte Untergrenze klemmen -> kein Dauerfeuer.
+        float takt  = Mathf.Max(MIN_TAKT,  taktImBurst         / frequenzFaktor);
+        float pause = Mathf.Max(MIN_PAUSE, pauseZwischenBursts / frequenzFaktor);
 
         return new SkalierteWerte
         {
@@ -97,8 +111,8 @@ public class TurmKonfiguration : ScriptableObject
             schaden    = schadenSkaliert ? Skaliere(schaden, stufe) : schaden,
 
             schuessProBurst     = Mathf.Max(1, schuessProBurst),
-            taktImBurst         = taktImBurst         / teiler,
-            pauseZwischenBursts = pauseZwischenBursts / teiler
+            taktImBurst         = takt,
+            pauseZwischenBursts = pause
         };
     }
 

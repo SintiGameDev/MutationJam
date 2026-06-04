@@ -1,128 +1,53 @@
 using UnityEngine;
 
+// Geradlinig fliegendes Projektil (kein Homing). Der Turm berechnet beim
+// Abschuss den Vorhalt-Punkt und gibt die feste Flugrichtung per SchiesseInRichtung()
+// vor. Treffer per Collider (Tag Enemy) oder nach Ablauf der Lebenszeit.
 public class Projectiles : MonoBehaviour
 {
-    // Was passiert, wenn das anvisierte Ziel verschwindet (z.B. ein anderes
-    // Projektil der Salve hat den Gegner schon getoetet)?
-    public enum ZielVerloren
-    {
-        // A: In der zuletzt bekannten Richtung geradeaus weiterfliegen und
-        //    nach kurzer Lebenszeit verschwinden (Schaden kann verpuffen).
-        GeradeausWeiter,
-
-        // B: Sofort den naechsten lebenden Gegner suchen und ihn anvisieren.
-        //    Wird keiner gefunden, fliegt es geradeaus weiter (wie A).
-        NeuesZielSuchen
-    }
-
-    private Transform target;
-
     [Header("Projektil-Werte")]
     public float speed = 10f;
 
     [Tooltip("Schaden, den dieses Projektil dem getroffenen Gegner zufuegt.")]
     public float damage = 10f;
 
-    [Header("Verhalten bei verlorenem Ziel")]
-    [Tooltip("A (GeradeausWeiter): fliegt in der letzten Richtung weiter.\n" +
-             "B (NeuesZielSuchen): visiert den naechsten lebenden Gegner an.")]
-    public ZielVerloren beiZielVerlust = ZielVerloren.NeuesZielSuchen;
+    [Tooltip("Maximale Lebenszeit in Sekunden, danach zerstoert es sich selbst " +
+             "(falls es nichts trifft).")]
+    public float lebenszeit = 3f;
 
-    [Tooltip("Tag, nach dem bei Variante B (und beim Neusuchen) gesucht wird.")]
+    [Header("Kollision")]
     public string enemyTag = "Enemy";
-
-    [Tooltip("Lebenszeit in Sekunden, nachdem das Ziel verloren ist und das " +
-             "Projektil nur noch geradeaus fliegt. Verhindert ewig fliegende Projektile.")]
-    public float lebenszeitOhneZiel = 2f;
+    [Tooltip("Tag fuer Waende/Hindernisse. Projektil wird bei Beruehrung zerstoert (ohne Schaden).")]
+    public string wallTag = "Wall";
 
     [Header("Ausrichtung")]
     [Tooltip("Wohin das Sprite im Ruhezustand zeigt:\n" +
-             "  -90 = Sprite-Spitze zeigt nach OBEN (+Y)\n" +
-             "    0 = Spitze zeigt nach RECHTS (+X)\n" +
-             "  180 = nach links,  90 = nach unten.")]
+             "  -90 = Spitze nach OBEN (+Y),  0 = nach RECHTS (+X).")]
     public float blickrichtungOffset = -90f;
 
-    // Zuletzt bekannte Flugrichtung – fuer das Geradeausfliegen ohne Ziel.
-    private Vector3 letzteRichtung = Vector3.right;
-    private bool hatZielVerloren = false;
-    private float ohneZielTimer = 0f;
+    private Vector3 flugrichtung = Vector3.right;
+    private float   timer = 0f;
+    private bool    wirdZerstoert = false;
 
-    public void Seek(Transform _target)
+    // Vom Turm beim Abschuss aufgerufen: feste, bereits vorgehaltene Richtung.
+    public void SchiesseInRichtung(Vector3 richtung)
     {
-        target = _target;
+        if (richtung.sqrMagnitude > 0.0001f)
+            flugrichtung = richtung.normalized;
+
+        AusrichtenNach(flugrichtung);
     }
 
-    void LateUpdate()
+    void Update()
     {
-        float distanceThisFrame = speed * Time.deltaTime;
-
-        // Ziel noch da? Richtung aktualisieren und ggf. treffen.
-        if (target != null)
+        timer += Time.deltaTime;
+        if (timer >= lebenszeit)
         {
-            Vector3 dir = target.position - transform.position;
-
-            if (dir.sqrMagnitude > 0.0001f)
-                letzteRichtung = dir.normalized;
-
-            if (dir.magnitude <= distanceThisFrame)
-            {
-                HitTarget();
-                return;
-            }
-        }
-        else
-        {
-            // Ziel weg -> je nach Einstellung reagieren.
-            if (!hatZielVerloren)
-            {
-                hatZielVerloren = true;
-
-                if (beiZielVerlust == ZielVerloren.NeuesZielSuchen)
-                {
-                    target = FindeNaechstesZiel();
-                    if (target != null)
-                    {
-                        // Neues Ziel gefunden -> wie gewohnt weiter (kein Timer).
-                        hatZielVerloren = false;
-                    }
-                }
-            }
-
-            // Kein (neues) Ziel: Timer hochzaehlen, dann verschwinden.
-            if (target == null)
-            {
-                ohneZielTimer += Time.deltaTime;
-                if (ohneZielTimer >= lebenszeitOhneZiel)
-                {
-                    Destroy(gameObject);
-                    return;
-                }
-            }
+            ZerstoereSelbst();
+            return;
         }
 
-        // Ausrichtung + Bewegung anhand der (ggf. zuletzt bekannten) Richtung.
-        AusrichtenNach(letzteRichtung);
-        transform.Translate(letzteRichtung * distanceThisFrame, Space.World);
-    }
-
-    private Transform FindeNaechstesZiel()
-    {
-        GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
-        float shortest = Mathf.Infinity;
-        Transform nearest = null;
-
-        foreach (GameObject e in enemies)
-        {
-            if (e == null) continue;
-            float d = Vector3.Distance(transform.position, e.transform.position);
-            if (d < shortest)
-            {
-                shortest = d;
-                nearest = e.transform;
-            }
-        }
-
-        return nearest;
+        transform.Translate(flugrichtung * speed * Time.deltaTime, Space.World);
     }
 
     private void AusrichtenNach(Vector3 dir)
@@ -132,16 +57,24 @@ public class Projectiles : MonoBehaviour
         transform.rotation = Quaternion.Euler(0f, 0f, winkel);
     }
 
-    void HitTarget()
+    private void OnTriggerEnter2D(Collider2D other)
     {
-        if (target != null)
+        if (other.CompareTag(enemyTag))
         {
-            EnemyHealthManager leben = target.GetComponent<EnemyHealthManager>();
-            if (leben != null)
-            {
-                leben.NimmSchaden(damage);
-            }
+            EnemyHealthManager leben = other.GetComponent<EnemyHealthManager>();
+            if (leben != null) leben.NimmSchaden(damage);
+            ZerstoereSelbst();
         }
+        else if (other.CompareTag(wallTag))
+        {
+            ZerstoereSelbst();
+        }
+    }
+
+    private void ZerstoereSelbst()
+    {
+        if (wirdZerstoert) return;
+        wirdZerstoert = true;
         Destroy(gameObject);
     }
 }
