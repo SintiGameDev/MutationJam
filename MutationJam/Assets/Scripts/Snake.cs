@@ -5,6 +5,11 @@ using UnityEngine;
 public class Snake : MonoBehaviour
 {
     public Transform segmentPrefab;
+    [Tooltip("Prefab fuer das Schlangenende (letztes Segment, rein visuell, kein Turm).")]
+    public Transform schwanzPrefab;
+    [Tooltip("Scale des Schwanzsegments.")]
+    public Vector3 schwanzScale = Vector3.one;
+
     public Vector2Int direction = Vector2Int.right;
     public float speed = 20f;
     public float speedMultiplier = 1f;
@@ -59,6 +64,11 @@ public class Snake : MonoBehaviour
     public float segmentAbstand = 1f;
 
     public List<Transform> Segments => segments;
+
+    // Index des Schwanzsegments (letzter Eintrag, falls ein Schwanz-Prefab gesetzt ist).
+    // -1 wenn kein Schwanz vorhanden.
+    private int SchwanzIndex => (schwanzPrefab != null && segments.Count > 1) ? segments.Count - 1 : -1;
+    private bool SchwanzVorhanden => SchwanzIndex >= 0;
 
     [Header("Kopf Gesundheit")]
     public float kopfMaxHealth = 3f;
@@ -221,6 +231,10 @@ public class Snake : MonoBehaviour
             Vector3 delta = logikPositionen[i] - vorigeLogikPos[i];
             bool bewegtSichHorizontal = Mathf.Abs(delta.x) > Mathf.Abs(delta.y);
 
+            // Schwanz bekommt seine eigene Basis-Scale statt segmentScale.
+            bool istSchwanz = SchwanzVorhanden && i == SchwanzIndex;
+            Vector3 basisSegScale = istSchwanz ? schwanzScale : segmentScale;
+
             float sx = bewegtSichHorizontal ? squashAmount : (2f - squashAmount);
             float sy = bewegtSichHorizontal ? (2f - squashAmount) : squashAmount;
             float squashDauer = stepDuration * 0.4f;
@@ -234,14 +248,14 @@ public class Snake : MonoBehaviour
                 segments[i].rotation = Quaternion.Euler(0f, 0f, RichtungsWinkel(delta));
 
             GameObject cap = segGO;
-            Vector3 squashZiel = new Vector3(segmentScale.x * sx, segmentScale.y * sy, segmentScale.z);
+            Vector3 squashZiel = new Vector3(basisSegScale.x * sx, basisSegScale.y * sy, basisSegScale.z);
             LeanTween.scale(cap, squashZiel, squashDauer)
                 .setEase(LeanTweenType.easeOutQuad)
                 .setUseEstimatedTime(true)
                 .setOnComplete(() =>
                 {
                     if (cap != null)
-                        LeanTween.scale(cap, segmentScale, squashDauer)
+                        LeanTween.scale(cap, basisSegScale, squashDauer)
                             .setEase(LeanTweenType.easeInOutQuad)
                             .setUseEstimatedTime(true);
                 });
@@ -267,6 +281,9 @@ public class Snake : MonoBehaviour
     {
         Transform segment = Instantiate(segmentPrefab);
 
+        // Einfuegeposition: vor dem Schwanz (falls vorhanden), sonst ans Ende.
+        int einfuegeIndex = SchwanzVorhanden ? segments.Count - 1 : segments.Count;
+
         Vector3 schwanzPos = logikPositionen.Count > 0
             ? logikPositionen[logikPositionen.Count - 1]
             : new Vector3(
@@ -275,7 +292,9 @@ public class Snake : MonoBehaviour
                 0f);
 
         segment.position = schwanzPos;
-        logikPositionen.Add(schwanzPos);
+        logikPositionen.Insert(einfuegeIndex, schwanzPos);
+        if (einfuegeIndex <= vorigeLogikPos.Count)
+            vorigeLogikPos.Insert(einfuegeIndex, schwanzPos);
 
         segment.localScale = Vector3.zero;
         LeanTween.scale(segment.gameObject, segmentScale, 0.25f)
@@ -294,7 +313,7 @@ public class Snake : MonoBehaviour
         foreach (SpriteRenderer sr in segment.GetComponentsInChildren<SpriteRenderer>())
             sr.sortingOrder = Mathf.Max(0, 9 - segments.Count);
 
-        segments.Add(segment);
+        segments.Insert(einfuegeIndex, segment);
 
         if (spieleSpawnSound)
             SoundManager.Instance?.SpieleSpawn();
@@ -303,7 +322,8 @@ public class Snake : MonoBehaviour
     public void SegmentGestorben(SnakeSegment segment)
     {
         int idx = segments.IndexOf(segment.transform);
-        if (idx >= 0)
+        // Schwanz hat kein SnakeSegment, aber sicherheitshalber absichern.
+        if (idx >= 0 && !(SchwanzVorhanden && idx == SchwanzIndex))
         {
             segments.RemoveAt(idx);
             if (idx < logikPositionen.Count)
@@ -368,6 +388,13 @@ public class Snake : MonoBehaviour
 
     public void EntferneSegmente(int startIndex, int anzahl)
     {
+        // Sicherstellen, dass der Schwanz nicht mit entfernt wird.
+        int maxAnzahl = SchwanzVorhanden
+            ? Mathf.Max(0, SchwanzIndex - startIndex)
+            : anzahl;
+        anzahl = Mathf.Min(anzahl, maxAnzahl);
+        if (anzahl <= 0) return;
+
         for (int i = startIndex; i < startIndex + anzahl; i++)
         {
             if (segments[i] != null)
@@ -399,7 +426,9 @@ public class Snake : MonoBehaviour
 
         foreach (int idx in sortiert)
         {
+            // Index 0 (Kopf) und den Schwanz-Index niemals entfernen.
             if (idx <= 0 || idx >= segments.Count) continue;
+            if (SchwanzVorhanden && idx == SchwanzIndex) continue;
 
             if (segments[idx] != null)
             {
@@ -428,6 +457,29 @@ public class Snake : MonoBehaviour
         }
 
         if (go != null) Destroy(go);
+    }
+
+    /// <summary>
+    /// Haengt das Schwanz-Prefab als letztes Segment an. Rein visuell –
+    /// kein SnakeSegment, kein Turm, kein HP. Wird von ResetState() einmalig
+    /// aufgerufen; Grow() fuegt neue Segmente stets VOR diesem letzten Index ein.
+    /// </summary>
+    private void SpawneSchwanz()
+    {
+        if (schwanzPrefab == null) return;
+
+        Transform schwanz = Instantiate(schwanzPrefab);
+
+        Vector3 pos = logikPositionen.Count > 0
+            ? logikPositionen[logikPositionen.Count - 1]
+            : Vector3.zero;
+
+        schwanz.position = pos;
+        schwanz.localScale = schwanzScale;
+
+        logikPositionen.Add(pos);
+        vorigeLogikPos.Add(pos);
+        segments.Add(schwanz);
     }
 
     public void ResetState()
@@ -463,6 +515,9 @@ public class Snake : MonoBehaviour
         {
             Grow();
         }
+
+        // Schwanz ans Ende anhaengen (falls Prefab gesetzt).
+        SpawneSchwanz();
 
         int benoetigt = Mathf.CeilToInt((segments.Count - 1) * segmentAbstand) + 2;
         pfadHistorie.Clear();
