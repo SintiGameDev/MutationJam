@@ -18,18 +18,30 @@ public class EnemyFollow2D : MonoBehaviour
     public float rueckstossDauer = 0.15f;
     public float stunDauer = 0.4f;
 
+    [Header("Haltedistanz")]
+    [Tooltip("Distanz zur Schlange, ab der der Gegner abbremst und stoppt.")]
+    public float haltDistanz = 3f;
+    [Tooltip("Distanz zur Schlange, ab der der Gegner wieder anfaehrt (Hysterese, > haltDistanz setzen).")]
+    public float weiterfahrDistanz = 4f;
+    [Tooltip("Wie weich gebremst und angefahren wird. 0 = sofort, hoeher = traeger.")]
+    [Range(1f, 20f)]
+    public float bremsTraegheit = 8f;
+
     [Header("Ausrichtung")]
     [Tooltip("Wohin das Sprite im Ruhezustand zeigt. Bei rechtsgerichtetem Sprite meist 0 oder -180.")]
     public float blickrichtungOffset = 0f;
 
     [Header("Visuelles Feedback")]
     public float flashDauer = 0.1f;
+    [Tooltip("Material, das beim Treffer kurz angezeigt wird (z.B. weisses Sprite-Material). Leer lassen = kein Flash.")]
+    public Material flashMaterial;
 
-    private enum Zustand { Frei, Rueckstoss, Stun }
+    private enum Zustand { Frei, Gestoppt, Rueckstoss, Stun }
     private Zustand zustand = Zustand.Frei;
 
     private float timer;
     private Vector2 rueckstossRichtung;
+    private float aktuelleTempo = 0f;   // wird weich interpoliert
 
     // Ueberlappte Koerper Segmente
     private readonly List<Transform> ueberlappendeSegmente = new List<Transform>();
@@ -38,25 +50,31 @@ public class EnemyFollow2D : MonoBehaviour
     private Transform ueberlappenderKopf;
     private Snake kopfSnake;
 
-    // Fuer das weisse Aufleuchten
-    private SpriteRenderer spriteRenderer;
+    // Fuer das Aufleuchten
+    private MeshRenderer meshRenderer;
     private Material originalMaterial;
-    private Material flashMaterial;
 
     void Start()
     {
-        // Zufaellige Geschwindigkeit fuer diesen spezifischen Gegner festlegen
         currentSpeed = Random.Range(minSpeed, maxSpeed);
+        aktuelleTempo = currentSpeed;
 
-        // SpriteRenderer und Materialien initialisieren
-        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
-        if (spriteRenderer != null)
+        GameObject body = null;
+        foreach (Transform child in GetComponentsInChildren<Transform>())
         {
-            originalMaterial = spriteRenderer.material;
-            flashMaterial = new Material(Shader.Find("GUI/Text Shader"));
+            if (child.CompareTag("EnemyBody"))
+            {
+                body = child.gameObject;
+                break;
+            }
+        }
+        if (body != null)
+        {
+            meshRenderer = body.GetComponent<MeshRenderer>();
+            if (meshRenderer != null)
+                originalMaterial = meshRenderer.material;
         }
 
-        // Initiale Ausrichtung erzwingen, damit der Gegner direkt beim Spawn korrekt gedreht ist
         Transform ziel = FindeZiel();
         if (ziel != null)
         {
@@ -72,6 +90,7 @@ public class EnemyFollow2D : MonoBehaviour
         switch (zustand)
         {
             case Zustand.Frei:
+            case Zustand.Gestoppt:
                 bool kopfVerwundbar = kopfSnake != null
                                       && ueberlappenderKopf != null
                                       && kopfSnake.NurKopfUebrig;
@@ -79,11 +98,11 @@ public class EnemyFollow2D : MonoBehaviour
                 if (ueberlappendeSegmente.Count > 0 || kopfVerwundbar)
                 {
                     StarteRueckstoss(kopfVerwundbar);
+                    break;
                 }
-                else
-                {
-                    BewegeZuZiel();
-                }
+
+                AktualisiereHalteZustand();
+                BewegeZuZiel();
                 break;
 
             case Zustand.Rueckstoss:
@@ -101,26 +120,62 @@ public class EnemyFollow2D : MonoBehaviour
             case Zustand.Stun:
                 timer -= Time.deltaTime;
                 if (timer <= 0f)
-                {
                     zustand = Zustand.Frei;
-                }
                 break;
         }
     }
 
+    // Prueft die Distanz zur Schlange und wechselt zwischen Frei/Gestoppt.
+    // Hysterese: erst bei haltDistanz stoppen, erst bei weiterfahrDistanz wieder losfahren.
+    private void AktualisiereHalteZustand()
+    {
+        Transform ziel = FindeZiel();
+        if (ziel == null) return;
+
+        float distanz = Vector2.Distance(transform.position, ziel.position);
+
+        if (zustand == Zustand.Frei && distanz <= haltDistanz)
+        {
+            zustand = Zustand.Gestoppt;
+        }
+        else if (zustand == Zustand.Gestoppt && distanz > weiterfahrDistanz)
+        {
+            zustand = Zustand.Frei;
+        }
+    }
+
+    private void BewegeZuZiel()
+    {
+        Transform ziel = FindeZiel();
+        if (ziel == null) return;
+
+        // Zieltempo: 0 wenn gestoppt, currentSpeed wenn frei
+        float zielTempo = (zustand == Zustand.Gestoppt) ? 0f : currentSpeed;
+
+        // Sanft interpolieren (abbremsen und anfahren)
+        aktuelleTempo = Mathf.Lerp(aktuelleTempo, zielTempo, bremsTraegheit * Time.deltaTime);
+
+        // Untergrenze: bei praktisch 0 ganz aufhoeren (kein endloses Kriechen)
+        if (aktuelleTempo < 0.01f) aktuelleTempo = 0f;
+
+        Vector3 zielPositionMitZ = new Vector3(ziel.position.x, ziel.position.y, transform.position.z);
+        transform.position = Vector3.MoveTowards(transform.position, zielPositionMitZ, aktuelleTempo * Time.deltaTime);
+
+        Vector2 richtung = (Vector2)ziel.position - (Vector2)transform.position;
+        AusrichtenNach(richtung);
+    }
+
     public void AufleuchtenLassen()
     {
-        if (spriteRenderer != null && gameObject.activeInHierarchy)
-        {
+        if (meshRenderer != null && flashMaterial != null && gameObject.activeInHierarchy)
             StartCoroutine(FlashRoutine());
-        }
     }
 
     private IEnumerator FlashRoutine()
     {
-        spriteRenderer.material = flashMaterial;
+        meshRenderer.material = flashMaterial;
         yield return new WaitForSeconds(flashDauer);
-        spriteRenderer.material = originalMaterial;
+        meshRenderer.material = originalMaterial;
     }
 
     private void StarteRueckstoss(bool kopfVerwundbar)
@@ -144,9 +199,7 @@ public class EnemyFollow2D : MonoBehaviour
         if (ziel != null)
         {
             if (zielIstKopf)
-            {
                 kopfSnake.KopfNimmtSchaden(schadenAnSegment);
-            }
             else
             {
                 SnakeSegment segment = ziel.GetComponent<SnakeSegment>();
@@ -169,24 +222,6 @@ public class EnemyFollow2D : MonoBehaviour
         timer = rueckstossDauer;
     }
 
-    private void BewegeZuZiel()
-    {
-        Transform ziel = FindeZiel();
-        if (ziel != null)
-        {
-            // Wir nehmen die X und Y Koordinaten des Ziels, aber behalten unsere eigene Z-Koordinate bei!
-            Vector3 zielPositionMitZ = new Vector3(ziel.position.x, ziel.position.y, transform.position.z);
-
-            // Jetzt nutzen wir Vector3.MoveTowards anstelle von Vector2
-            transform.position = Vector3.MoveTowards(
-                transform.position, zielPositionMitZ, currentSpeed * Time.deltaTime);
-
-            // Ausrichten (Hier reicht Vector2 weiterhin, da es nur um den Winkel geht)
-            Vector2 richtung = (Vector2)ziel.position - (Vector2)transform.position;
-            AusrichtenNach(richtung);
-        }
-    }
-
     private void AusrichtenNach(Vector2 dir)
     {
         if (dir.sqrMagnitude < 0.0001f) return;
@@ -198,9 +233,7 @@ public class EnemyFollow2D : MonoBehaviour
     {
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
-        {
             return player.transform;
-        }
         return FindeNaechstesSegment();
     }
 

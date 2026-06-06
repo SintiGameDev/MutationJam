@@ -147,7 +147,7 @@ MonoBehaviour:
   firePoints: []
   projectilePrefab: {fileID: 5451908957895355184, guid: 4d5cdb69596782b4bbb0372aec6463ce,
     type: 3}
-  zielSuchIntervall: 0
+  zielSuchIntervall: 0.2
   blickrichtungOffset: 0
   drehGeschwindigkeit: 720
 --- !u!50 &-8142310119592049010
@@ -250,6 +250,21 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: d0a8dcb633287424ab0e5df6809064c4,
+        type: 3}
+      propertyPath: m_Materials.Array.size
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: d0a8dcb633287424ab0e5df6809064c4,
+        type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 24d808a5585716e4b973851c0cb25894, type: 2}
+    - target: {fileID: -7511558181221131132, guid: d0a8dcb633287424ab0e5df6809064c4,
+        type: 3}
+      propertyPath: 'm_Materials.Array.data[1]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 24d808a5585716e4b973851c0cb25894, type: 2}
     - target: {fileID: 919132149155446097, guid: d0a8dcb633287424ab0e5df6809064c4,
         type: 3}
       propertyPath: m_Name

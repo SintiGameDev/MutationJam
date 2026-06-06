@@ -88,9 +88,11 @@ MonoBehaviour:
   lebenszeit: 3
   enemyTag: Enemy
   wallTag: Wall
+  homingAktiv: 1
+  lenkStaerke: 600
   tiefenachse: 0
   tiefeFixieren: 1
-  festeTiefe: 1
+  festeTiefe: 0
   blickrichtungOffset: 0
 --- !u!212 &2331618544827182036
 SpriteRenderer:

@@ -27,8 +27,8 @@ public class Tower : MonoBehaviour
     private const float MIN_PAUSE = 0.05f;
 
     // Burst-Zustand
-    private int schussImBurst = 0;     // wie viele Schuesse der aktuellen Salve schon raus sind
-    private float naechsterSchuss = 0f;  // Zeitpunkt (Time.time), ab dem wieder gefeuert werden darf
+    private int schussImBurst = 0;
+    private float naechsterSchuss = 0f;
 
     // Merkt sich die zuletzt angewendete Konfiguration/Stufe, damit ein erneutes
     // Anwenden derselben Werte den laufenden Burst NICHT zuruecksetzt.
@@ -73,22 +73,26 @@ public class Tower : MonoBehaviour
 
     private Transform target;
 
-    // Vorhalt: vorige Zielposition + Projektiltempo, um Gegnergeschwindigkeit
-    // zu schaetzen und den Abfangpunkt zu berechnen.
-    private Vector3 vorigeZielPos;
-    private bool habeVorigeZielPos = false;
-    private float projektilSpeed = 10f;
+    // FIX Bug 1: Vorhalt-Zustand ist an das konkrete Target-Objekt gebunden.
+    // Wenn das Target wechselt, wird die alte Positionshistorie verworfen,
+    // damit keine Phantomgeschwindigkeit entsteht.
+    private Transform vorhaltTarget = null;    // fuer welches Objekt vorigeZielPos gilt
+    private Vector3   vorigeZielPos;
+    private bool      habeVorigeZielPos = false;
+    private float     projektilSpeed = 10f;
 
-    // Vorhalt-Punkt wird pro Frame nur EINMAL berechnet (siehe HoleVorhaltPunkt).
-    private Vector3 aktuellerVorhaltPunkt;
-    private int vorhaltFrame = -1;
+    // FIX Bug 2: Frame-Cache speichert zusaetzlich das Target, fuer das er
+    // berechnet wurde. Ein Target-Wechsel innerhalb desselben Frames (Update-
+    // Ausrichtung vs. Schuss-Ziel) liefert jetzt korrekt einen neuen Vorhalt.
+    private Vector3   aktuellerVorhaltPunkt;
+    private int       vorhaltFrame = -1;
+    private Transform vorhaltCacheTarget = null;
 
     void Start()
     {
         LiesProjektilTempo();
     }
 
-    // Projektiltempo einmalig vom Prefab lesen (fuer die Vorhalt-Rechnung).
     private void LiesProjektilTempo()
     {
         if (projectilePrefab != null)
@@ -99,15 +103,8 @@ public class Tower : MonoBehaviour
     }
 
     // ------------------------------------------------------------------
-    // Zentraler, EINZIGER Einstiegspunkt fuer das Segment, um die Werte aus
-    // der TurmKonfiguration zu uebernehmen. Ueber diese Methode anwenden statt
-    // die Felder einzeln zu beschreiben.
-    //
-    // Wichtig gegen "zu viele Projektile":
-    //  - Mehrfaches Aufrufen mit DENSELBEN Werten (z.B. jeden Frame durchs
-    //    Segment) setzt den Burst-Zustand NICHT zurueck -> kein Dauerfeuer.
-    //  - 'naechsterSchuss' wird nie nach vorne (in die Vergangenheit) gezogen,
-    //    eine laufende Salven-Pause bleibt also erhalten.
+    // Zentraler Einstiegspunkt fuer das Segment, um Werte aus der
+    // TurmKonfiguration zu uebernehmen.
     // ------------------------------------------------------------------
     public void WendeKonfigurationAn(TurmKonfiguration konfig, int stufe)
     {
@@ -115,14 +112,13 @@ public class Tower : MonoBehaviour
 
         TurmKonfiguration.SkalierteWerte w = konfig.BerechneWerte(stufe);
 
-        // Werte uebernehmen (guenstig, darf jeder Frame passieren).
-        range = w.reichweite;
-        schaden = w.schaden;
-        schuessProBurst = Mathf.Max(1, w.schuessProBurst);
-        taktImBurst = w.taktImBurst;
+        range               = w.reichweite;
+        schaden             = w.schaden;
+        schuessProBurst     = Mathf.Max(1, w.schuessProBurst);
+        taktImBurst         = w.taktImBurst;
         pauseZwischenBursts = w.pauseZwischenBursts;
 
-        schussSound = konfig.schussSound;
+        schussSound       = konfig.schussSound;
         schussLautstaerke = konfig.schussLautstaerke;
 
         if (konfig.projektilPrefab != null && projectilePrefab != konfig.projektilPrefab)
@@ -131,28 +127,22 @@ public class Tower : MonoBehaviour
             LiesProjektilTempo();
         }
 
-        // Nur bei einer ECHTEN Aenderung (anderer Turmtyp oder andere Stufe)
-        // den Burst sauber neu starten. Sonst Zustand unangetastet lassen.
         bool veraendert = (konfig != letzteKonfig) || (stufe != letzteStufe);
         if (veraendert)
         {
-            schussImBurst = 0;
-            // Cooldown nie verkuerzen: laufende Pause bleibt, frisch frueher als jetzt geht nicht.
+            schussImBurst   = 0;
             naechsterSchuss = Mathf.Max(naechsterSchuss, Time.time + Mathf.Max(MIN_TAKT, taktImBurst));
-            letzteKonfig = konfig;
-            letzteStufe = stufe;
+            letzteKonfig    = konfig;
+            letzteStufe     = stufe;
         }
     }
 
-    // Sucht den naechsten Gegner (Tag 'enemyTag') in Reichweite. Naechster Gegner
-    // = groesste Bedrohung, weil er dem Turm am ehesten Schaden zufuegen kann.
-    // Liefert null, wenn kein Gegner in Reichweite ist.
     private Transform FindeBestesZiel()
     {
         GameObject[] enemies = GameObject.FindGameObjectsWithTag(enemyTag);
 
-        float kuerzesteDistanz = range;   // nur Gegner innerhalb der Reichweite zaehlen
-        Transform bestesZiel = null;
+        float     kuerzesteDistanz = range;
+        Transform bestesZiel       = null;
 
         foreach (GameObject enemy in enemies)
         {
@@ -162,7 +152,7 @@ public class Tower : MonoBehaviour
             if (distanz <= kuerzesteDistanz)
             {
                 kuerzesteDistanz = distanz;
-                bestesZiel = enemy.transform;
+                bestesZiel       = enemy.transform;
             }
         }
 
@@ -171,20 +161,15 @@ public class Tower : MonoBehaviour
 
     void Update()
     {
-        // 1) Ziel fuer die AUSRICHTUNG aktualisieren (gedrosselt ueber zielSuchIntervall,
-        //    0 = jeden Frame). So bleibt das Geschuetz auch waehrend der Salven-Pause
-        //    auf den naechsten Gegner gerichtet.
+        // 1) Ziel fuer die Ausrichtung aktualisieren (gedrosselt).
         if (Time.time >= naechsteZielsuche)
         {
-            target = FindeBestesZiel();
+            SetzeTarget(FindeBestesZiel());
             naechsteZielsuche = Time.time + Mathf.Max(0f, zielSuchIntervall);
         }
 
         if (target == null)
         {
-            // Ohne Ziel: laufende Salve abbrechen, naechste startet frisch beim
-            // naechsten Ziel. 'naechsterSchuss' bleibt erhalten, damit eine
-            // gerade begonnene Pause NICHT uebersprungen wird.
             schussImBurst = 0;
             return;
         }
@@ -192,74 +177,84 @@ public class Tower : MonoBehaviour
         if (Time.time < naechsterSchuss)
             return;
 
-        // 2) PRO SCHUSS frisch das beste Ziel waehlen – unabhaengig von der
-        //    Ausrichtungs-Drosselung. So trifft jeder einzelne Schuss garantiert
-        //    den aktuell naechsten (bedrohlichsten) Gegner.
-        target = FindeBestesZiel();
+        // 2) Direkt vor dem Schuss nochmal frisch das beste Ziel waehlen.
+        SetzeTarget(FindeBestesZiel());
         if (target == null)
         {
             schussImBurst = 0;
             return;
         }
 
-        // Ein Schuss der aktuellen Salve
         Shoot();
         schussImBurst++;
 
         if (schussImBurst >= Mathf.Max(1, schuessProBurst))
         {
-            // Salve fertig -> lange Pause, dann neue Salve
-            schussImBurst = 0;
+            schussImBurst   = 0;
             naechsterSchuss = Time.time + Mathf.Max(MIN_PAUSE, pauseZwischenBursts);
         }
         else
         {
-            // Naechster Schuss innerhalb der Salve -> kurzer Takt
             naechsterSchuss = Time.time + Mathf.Max(MIN_TAKT, taktImBurst);
         }
     }
 
-    // Ausrichtung NACH der Segment-Bewegung (LeanTween laeuft im Update),
-    // damit auf die finale Position dieses Frames gezielt wird.
     void LateUpdate()
     {
         RichteAufZiel();
     }
 
-    // Liefert den Vorhalt-Punkt und berechnet ihn pro Frame nur EINMAL.
-    // Wichtig: BerechneVorhaltPunkt() aktualisiert die geschaetzte Gegner-
-    // geschwindigkeit (vorigeZielPos). Wuerde es zweimal pro Frame laufen
-    // (Shoot in Update + RichteAufZiel in LateUpdate), kaeme im zweiten Aufruf
-    // eine Geschwindigkeit von 0 heraus -> kein Vorhalt. Der Frame-Cache
-    // verhindert das.
+    // FIX Bug 1: Target-Wechsel invalidiert die Positionshistorie.
+    // Ohne diesen Schritt wuerde (GegnerB.pos - GegnerA.pos) / deltaTime
+    // als Geschwindigkeit des neuen Ziels interpretiert -> Phantomvorhalt
+    // hunderte Units entfernt -> wildes Rotieren.
+    private void SetzeTarget(Transform neuesTarget)
+    {
+        if (neuesTarget == target) return;   // unveraendert, nichts tun
+
+        target = neuesTarget;
+
+        // Alte Positionshistorie gehoert zum alten Objekt -> wegwerfen.
+        habeVorigeZielPos = false;
+        vorhaltTarget     = target;
+    }
+
+    // FIX Bug 2: Cache ist nur gueltig, wenn Target und Frame uebereinstimmen.
+    // Wechselt das Target innerhalb eines Frames (Ausrichtung vs. Schuss),
+    // wird ein frischer Vorhalt berechnet statt der gecachte Wert zurueck-
+    // gegeben zu werden.
     private Vector3 HoleVorhaltPunkt()
     {
-        if (Time.frameCount != vorhaltFrame)
+        if (Time.frameCount != vorhaltFrame || vorhaltCacheTarget != target)
         {
             aktuellerVorhaltPunkt = BerechneVorhaltPunkt();
-            vorhaltFrame = Time.frameCount;
+            vorhaltFrame          = Time.frameCount;
+            vorhaltCacheTarget    = target;
         }
         return aktuellerVorhaltPunkt;
     }
 
-    // Berechnet den Vorhalt-Punkt: wo der Gegner sein wird, wenn das Projektil
-    // ankommt. Nutzt die aus zwei Frames geschaetzte Gegnergeschwindigkeit.
+    // Berechnet den Vorhalt-Punkt (Abfangpunkt) per quadratischer Gleichung.
+    // FIX Bug 3: Sucht explizit die kleinste POSITIVE Loesung, statt einfach
+    // Mathf.Min zu nehmen (das kann eine negative Loesung bevorzugen).
     private Vector3 BerechneVorhaltPunkt()
     {
         if (target == null) return transform.position;
 
         Vector3 zielPos = target.position;
 
-        // Gegnergeschwindigkeit schaetzen (Positionsdifferenz pro Sekunde)
+        // Geschwindigkeit des Gegners schaetzen (Positionsdifferenz / Zeit).
+        // habeVorigeZielPos ist false, sobald das Target gewechselt hat (Bug-1-Fix),
+        // also starten wir fuer ein neues Ziel sauber mit Geschwindigkeit = 0.
         Vector3 zielGeschw = Vector3.zero;
         if (habeVorigeZielPos && Time.deltaTime > 0f)
             zielGeschw = (zielPos - vorigeZielPos) / Time.deltaTime;
 
-        vorigeZielPos = zielPos;
+        vorigeZielPos     = zielPos;
         habeVorigeZielPos = true;
 
-        // Abfang-Gleichung loesen: |zielPos + zielGeschw*t - turmPos| = projektilSpeed*t
-        // => quadratisch in t.  a*t^2 + b*t + c = 0
+        // Abfang-Gleichung:  |relPos + zielGeschw*t| = projektilSpeed * t
+        // Ausmultipliziert:  a*t^2 + b*t + c = 0
         Vector3 relPos = zielPos - transform.position;
         float a = Vector3.Dot(zielGeschw, zielGeschw) - projektilSpeed * projektilSpeed;
         float b = 2f * Vector3.Dot(relPos, zielGeschw);
@@ -269,7 +264,7 @@ public class Tower : MonoBehaviour
 
         if (Mathf.Abs(a) < 0.0001f)
         {
-            // Gegner etwa so schnell wie das Projektil -> lineare Naeherung
+            // Sonderfall: Gegner-Tempo ~ Projektil-Tempo -> linearer Fall
             if (Mathf.Abs(b) > 0.0001f) t = -c / b;
         }
         else
@@ -281,37 +276,38 @@ public class Tower : MonoBehaviour
                 float t1 = (-b + wurzel) / (2f * a);
                 float t2 = (-b - wurzel) / (2f * a);
 
-                // Kleinste positive Loesung waehlen
-                t = Mathf.Min(t1, t2);
-                if (t < 0f) t = Mathf.Max(t1, t2);
+                // FIX Bug 3: Kleinste POSITIVE Loesung waehlen.
+                // Mathf.Min(t1, t2) kann negativ sein, auch wenn eine der beiden
+                // positiv ist – das fuehrte zum Vorbeischuss.
+                if (t1 >= 0f && t2 >= 0f)
+                    t = Mathf.Min(t1, t2);      // beide positiv -> naeherliegende nehmen
+                else if (t1 >= 0f)
+                    t = t1;
+                else if (t2 >= 0f)
+                    t = t2;
+                // else: beide negativ -> t bleibt 0 (Gegner hinter dem Turm o.ae.)
             }
         }
 
-        if (t < 0f) t = 0f;   // kein sinnvoller Vorhalt -> auf aktuelle Position zielen
+        if (t < 0f) t = 0f;
 
         return zielPos + zielGeschw * t;
     }
 
     private void RichteAufZiel()
     {
-        if (target == null) return;   // kein Ziel -> Geschuetz bleibt, wo es war
+        if (target == null) return;
 
-        // Vorhalt-Punkt aus dem Frame-Cache (siehe HoleVorhaltPunkt).
-        Vector3 vorhalt = HoleVorhaltPunkt();
-
-        // Richtung zum VORHALT-Punkt (nicht zur aktuellen Gegnerposition)
+        Vector3 vorhalt  = HoleVorhaltPunkt();
         Vector3 richtung = vorhalt - transform.position;
         if (richtung.sqrMagnitude < 0.0001f) return;
 
-        float winkel = Mathf.Atan2(richtung.y, richtung.x) * Mathf.Rad2Deg + blickrichtungOffset;
-
-        // WELT-Rotation setzen, damit die Segment-Drehung (RichtungsWinkel)
-        // die Ausrichtung NICHT mitverdreht.
-        Quaternion ziel = Quaternion.Euler(0f, 0f, winkel);
+        float     winkel = Mathf.Atan2(richtung.y, richtung.x) * Mathf.Rad2Deg + blickrichtungOffset;
+        Quaternion ziel  = Quaternion.Euler(0f, 0f, winkel);
 
         if (drehGeschwindigkeit <= 0f)
         {
-            transform.rotation = ziel;   // sofort
+            transform.rotation = ziel;
         }
         else
         {
@@ -322,64 +318,57 @@ public class Tower : MonoBehaviour
 
     void Shoot()
     {
-        // Vorhalt-Punkt aus dem Frame-Cache holen (gleicher Wert wie die Ausrichtung).
         Vector3 vorhalt = HoleVorhaltPunkt();
 
-        // Schuss-Sound EINMAL pro Schuss (nicht pro Feuerpunkt), damit eine
-        // Salve aus mehreren Firepoints nicht mehrfach gleichzeitig knallt.
         if (schussSound != null)
             SoundManager.Instance?.SpieleClip(schussSound, schussLautstaerke);
 
-        // Alle aktiven Feuerpunkte ermitteln. Liste hat Vorrang; ist sie leer,
-        // faellt es auf den einzelnen firePoint zurueck.
         if (firePoints != null && firePoints.Length > 0)
         {
             foreach (Transform fp in firePoints)
             {
-                if (fp != null) FeuereVon(fp, vorhalt);
+                if (fp != null) FeuereVon(fp, vorhalt, target);
             }
         }
         else if (firePoint != null)
         {
-            FeuereVon(firePoint, vorhalt);
+            FeuereVon(firePoint, vorhalt, target);
         }
     }
 
-    // Spawnt EIN Projektil an einem Feuerpunkt und schickt es gerade in
-    // Richtung des Vorhalt-Punkts.
-    private void FeuereVon(Transform fp, Vector3 vorhalt)
+    // Spawnt EIN Projektil an einem Feuerpunkt.
+    // homingZiel wird ans Projektil weitergegeben – ist homingAktiv am Prefab
+    // deaktiviert, ignoriert das Projektil den Wert einfach.
+    private void FeuereVon(Transform fp, Vector3 vorhalt, Transform homingZiel)
     {
         if (projectilePrefab == null) return;
 
-        GameObject projectileGO = Instantiate(projectilePrefab, fp.position, fp.rotation);
+        GameObject  projektilGO = Instantiate(projectilePrefab, fp.position, fp.rotation);
+        Projectiles projektil   = projektilGO.GetComponent<Projectiles>();
 
-        Projectiles projectile = projectileGO.GetComponent<Projectiles>();
-        if (projectile != null)
+        if (projektil != null)
         {
-            // Schaden des Turms (ggf. durch Mutationsstufe skaliert) ans Projektil weitergeben
-            projectile.damage = schaden;
+            projektil.damage = schaden;
+            projektil.SetzeTiefeAusWeltpunkt(vorhalt);
 
-            // 2.5D: Projektil auf die Tiefen-Ebene des anvisierten Punkts (Gegner)
-            // legen, damit ein z-Versatz des Feuerpunkts nicht zu einem Vorbeischuss
-            // fuehrt. Welche Achse "Tiefe" ist, steht am Projektil-Prefab.
-            projectile.SetzeTiefeAusWeltpunkt(vorhalt);
+            // Startrichtung: Vorhalt-Punkt des Turms (gibt dem Homing einen guten
+            // Startvektor; ohne Homing ist das die einzige Flugrichtung).
+            projektil.SchiesseInRichtung(vorhalt - fp.position);
 
-            // Gerade Richtung zum vorgehaltenen Abfangpunkt (vom firePoint aus).
-            Vector3 richtung = vorhalt - fp.position;
-            projectile.SchiesseInRichtung(richtung);
+            // Homing-Ziel mitgeben. Das Projektil ignoriert diesen Aufruf, wenn
+            // homingAktiv am Prefab auf false steht.
+            projektil.SetzZiel(homingZiel);
         }
     }
 
-    // Schuetzt vor unsinnigen Inspector-Werten (verhindert 0/negative Zeiten).
     void OnValidate()
     {
-        schuessProBurst = Mathf.Max(1, schuessProBurst);
-        taktImBurst = Mathf.Max(MIN_TAKT, taktImBurst);
+        schuessProBurst     = Mathf.Max(1, schuessProBurst);
+        taktImBurst         = Mathf.Max(MIN_TAKT, taktImBurst);
         pauseZwischenBursts = Mathf.Max(MIN_PAUSE, pauseZwischenBursts);
-        zielSuchIntervall = Mathf.Max(0f, zielSuchIntervall);
+        zielSuchIntervall   = Mathf.Max(0f, zielSuchIntervall);
     }
 
-    // Hilfreich im Unity Editor: Zeigt die Reichweite als rote Kugel an
     void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.red;

@@ -147,7 +147,8 @@ TextureImporter:
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
-    nameFileIdTable: {}
+    nameFileIdTable:
+      SpurSprite_0: 4355504816159382054
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

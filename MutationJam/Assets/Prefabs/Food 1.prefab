@@ -153,17 +153,17 @@ MonoBehaviour:
   typen:
   - bezeichnung: Rot
     farbe: {r: 0.8867924, g: 0.28025985, b: 0.28025985, a: 1}
-    material: {fileID: 2100000, guid: d494b9bfeb3e2704aba1682b75d53e2f, type: 2}
+    material: {fileID: 2100000, guid: 77ebff8281f11324da8c749e53e6965b, type: 2}
     turmKonfiguration: {fileID: 11400000, guid: 18188bfc242aee449aeaae4506ada555,
       type: 2}
   - bezeichnung: Orange
     farbe: {r: 0.9622642, g: 0.6841879, b: 0.19517623, a: 1}
-    material: {fileID: 2100000, guid: 8addf39bcc9f6c249b06d0442e9a24d9, type: 2}
+    material: {fileID: 2100000, guid: 464aa8dc83108f249a5b3cd75f0f5d85, type: 2}
     turmKonfiguration: {fileID: 11400000, guid: 8d85812f6a0d7b1459f8c1aa8fe544ad,
       type: 2}
   - bezeichnung: Yellow
     farbe: {r: 0.9451579, g: 1, b: 0.3726415, a: 1}
-    material: {fileID: 2100000, guid: 67ec5ae0a31902740b056b69971b0f19, type: 2}
+    material: {fileID: 2100000, guid: 24d808a5585716e4b973851c0cb25894, type: 2}
     turmKonfiguration: {fileID: 11400000, guid: 96b75a9d5a21e0243b30bbb1c94b4a55,
       type: 2}
 --- !u!1001 &2767500357088855094

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   turmPrefab: {fileID: 341460832292589893, guid: b238c426eb7685e48b42c0d4d94cd85c,
     type: 3}
-  reichweite: 4
+  reichweite: 10
   schussrate: 1
   schaden: 5
   schuessProBurst: 3
@@ -23,7 +23,7 @@ MonoBehaviour:
   projektilPrefab: {fileID: 5451908957895355184, guid: 92a83df2f1d9ee742a732844f0ec7561,
     type: 3}
   schussSound: {fileID: 8300000, guid: 3e0aa72ba2e7e084b91fdee3ea0ed901, type: 3}
-  schussLautstaerke: 0.356
+  schussLautstaerke: 0.057
   skalierungsModus: 0
   skalierungsFaktor: 0.5
   reichweiteSkaliert: 1
